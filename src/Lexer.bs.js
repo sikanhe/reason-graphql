@@ -6,6 +6,7 @@ var $$String = require("bs-platform/lib/js/string.js");
 var Pervasives = require("bs-platform/lib/js/pervasives.js");
 var Caml_string = require("bs-platform/lib/js/caml_string.js");
 var Js_primitive = require("bs-platform/lib/js/js_primitive.js");
+var Caml_exceptions = require("bs-platform/lib/js/caml_exceptions.js");
 
 function strOfTokenKind(param) {
   switch (param) {
@@ -79,6 +80,8 @@ function tok($staropt$star, $staropt$star$1, kind, start, end_, line, column) {
             value
           ]);
 }
+
+var $$SyntaxError = Caml_exceptions.create("Lexer-ReasonGraphqlServer.SyntaxError");
 
 function printToken(token) {
   var kindStr = strOfTokenKind(token[/* kind */0]);
@@ -256,7 +259,10 @@ function readDigits(body, startingPosition) {
       var c = Caml_string.get(body$1, pos);
       if (c > 57 || c < 48) {
         if (pos === startingPosition) {
-          return Pervasives.failwith("Invalid number, expected digit but got: " + $$String.make(1, c));
+          throw [
+                $$SyntaxError,
+                "Invalid number, expected digit but got: " + $$String.make(1, c)
+              ];
         } else {
           return pos;
         }
@@ -278,7 +284,10 @@ function readNumber(body, start, line, column, prev) {
     position = position + 1 | 0;
     var $$char = Caml_string.get(body, position);
     if (!($$char > 57 || $$char < 48)) {
-      Pervasives.failwith("Invalid number, unexpected digit after 0: " + $$String.make(1, $$char));
+      throw [
+            $$SyntaxError,
+            "Invalid number, unexpected digit after 0: " + $$String.make(1, $$char)
+          ];
     }
     
   } else {
@@ -495,13 +504,16 @@ function readToken(lexer, prevToken) {
                         prev,
                         ""
                       ]);
+            } else if ((position + 1 | 0) >= body.length) {
+              throw [
+                    $$SyntaxError,
+                    "Unexpected End of File"
+                  ];
             } else {
-              var match = (position + 1 | 0) >= body.length;
-              if (match) {
-                return Pervasives.failwith("Syntax Error: Unexpected End of File");
-              } else {
-                return Pervasives.failwith("Syntax Error: Unexpected Character" + $$String.make(1, Caml_string.get(body, position + 1 | 0)));
-              }
+              throw [
+                    $$SyntaxError,
+                    "Unexpected Character" + $$String.make(1, Caml_string.get(body, position + 1 | 0))
+                  ];
             }
         case 12 : 
         case 15 : 
@@ -625,7 +637,10 @@ function readToken(lexer, prevToken) {
     }
     switch (exit) {
       case 1 : 
-          return Pervasives.failwith("Syntax Error: Unexpected Character" + $$String.make(1, $$char));
+          throw [
+                $$SyntaxError,
+                "Unexpected Character" + $$String.make(1, $$char)
+              ];
       case 2 : 
           return readName(body, position, line, column, prev);
       case 3 : 
@@ -675,6 +690,7 @@ function advance(lexer) {
 
 exports.strOfTokenKind = strOfTokenKind;
 exports.tok = tok;
+exports.$$SyntaxError = $$SyntaxError;
 exports.printToken = printToken;
 exports.safeMatch = safeMatch;
 exports.positionAfterWhitespace = positionAfterWhitespace;

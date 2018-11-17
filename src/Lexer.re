@@ -79,6 +79,8 @@ let tok = (~value="", ~prev=None, kind, ~start, ~end_, ~line, ~column) => {
   value,
 };
 
+exception SyntaxError(string);
+
 /* (line:col) kind: <token.kind>, value: <token.value> */
 let printToken = token => {
   let kindStr = strOfTokenKind(token.kind);
@@ -209,7 +211,7 @@ let readDigits = (body, startingPosition): int => {
       switch (body.[pos]) {
       | '0'..'9' => aux(body, pos + 1)
       | c when pos === startingPosition =>
-        failwith("Invalid number, expected digit but got: " ++ String.make(1, c))
+        raise(SyntaxError("Invalid number, expected digit but got: " ++ String.make(1, c)))
       | _ => pos
       };
     };
@@ -236,7 +238,7 @@ let readNumber = (body, start, line, column, prev) => {
     position := position^ + 1;
     switch (body.[position^]) {
     | '0'..'9' as char =>
-      failwith("Invalid number, unexpected digit after 0: " ++ String.make(1, char))
+      raise(SyntaxError("Invalid number, unexpected digit after 0: " ++ String.make(1, char)))
     | _ => ()
     };
   } else {
@@ -318,10 +320,10 @@ let readToken = (lexer, prevToken) => {
           value: "",
           prev,
         };
+      } else if (position + 1 >= String.length(body)) {
+        raise(SyntaxError("Unexpected End of File"));
       } else {
-        position + 1 >= String.length(body) ?
-          failwith("Syntax Error: Unexpected End of File") :
-          failwith("Syntax Error: Unexpected Character" ++ String.make(1, body.[position + 1]));
+        raise(SyntaxError("Unexpected Character" ++ String.make(1, body.[position + 1])));
       }
     | ':' => {kind: COLON, location, value: "", prev}
     | '=' => {kind: EQUALS, location, value: "", prev}
@@ -338,7 +340,7 @@ let readToken = (lexer, prevToken) => {
     | '-' => readNumber(body, position, line, column, prev)
     | '"' => readString(body, position, line, column, prev)
     | '#' => readComment(body, position, line, column, prev)
-    | char => failwith("Syntax Error: Unexpected Character" ++ String.make(1, char))
+    | char => raise(SyntaxError("Unexpected Character" ++ String.make(1, char)))
     };
   };
 };

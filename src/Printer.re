@@ -36,17 +36,16 @@ let rec printType =
   | ListType(typ) => "[" ++ printType(typ) ++ "]"
   | NonNullType(typ) => printType(typ) ++ "!";
 
-let printVariableDef = var => var.variable->printValue;
-let printVariables = vars =>
-  vars
-  ->List.map(varDef => printValue(varDef.variable) ++ ": " ++ printType(varDef.typ))
-  ->join(", ");
+let printVariableDef = ({variable, typ}: variableDefinition) =>
+  printValue(variable) ++ ": " ++ printType(typ);
+let printVariables = vars => vars->List.map(printVariableDef)->join(", ");
 
-let printArgument = (arg: argument) => arg.name ++ ": " ++ printValue(arg.value);
+let printArgument = ({name, value}: argument) => name ++ ": " ++ printValue(value);
 let printArguments = (args: list(argument)) => args->List.map(printArgument)->join(", ");
 
 let printDirective = ({name, arguments}: directive) =>
   "@" ++ name ++ wrap("(", printArguments(arguments), ")");
+
 let printDirectives = directives => directives->List.map(printDirective)->join(" ");
 
 let printOpt =
@@ -54,7 +53,7 @@ let printOpt =
   | Some(v) => v
   | None => "";
 
-let rec printSelectionSet = (set: list(selection)) => set->List.map(printSelection)->block
+let rec printSelectionSet = selectionSet => selectionSet->List.map(printSelection)->block
 and printSelection =
   fun
   | Field(field) => printField(field)
@@ -87,24 +86,25 @@ and printInlineFragmentDefinition = ({typeCondition, selectionSet, directives}) 
     " ",
   );
 
-let printOperationDef = (operationDef: operationDefinition) => {
-  let op =
-    switch (operationDef.operationType) {
+let printOperationDef =
+    ({operationType, variableDefinition, directives, selectionSet} as operationDef) => {
+  let operationTypeStr =
+    switch (operationType) {
     | Query => "query"
     | Subscription => "subscription"
     | Mutation => "mutation"
     };
-  let varDefs = "(" ++ printVariables(operationDef.variableDefinition) ++ ")";
-  let directives = printDirectives(operationDef.directives);
-  let selectionSet = printSelectionSet(operationDef.selectionSet);
+  let varDefs = "(" ++ printVariables(variableDefinition) ++ ")";
+  let directives = printDirectives(directives);
+  let selectionSet = printSelectionSet(selectionSet);
 
   switch (operationDef) {
-  | {name: None, directives: [], variableDefinition: [], operationType: Query} => selectionSet
-  | {name} => join([op, join([printOpt(name), varDefs], ""), directives, selectionSet], " ")
+  | {operationType: Query, name: None, directives: [], variableDefinition: []} => selectionSet
+  | {name} => join([operationTypeStr, join([printOpt(name), varDefs], ""), directives, selectionSet], " ")
   };
 };
 
-let printFragmentDef = ({name, typeCondition, directives, selectionSet}: fragmentDefinition) =>
+let printFragmentDef = ({name, typeCondition, directives, selectionSet}) =>
   "fragment "
   ++ name
   ++ " on "
@@ -118,4 +118,5 @@ let printDefinition = definition =>
   | OperationDefinition(operationDef) => printOperationDef(operationDef)
   | FragmentDefinition(fragmentDef) => printFragmentDef(fragmentDef)
   };
+
 let print = ({definitions}: document) => join(definitions->List.map(printDefinition), "\n\n");

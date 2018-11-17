@@ -8,7 +8,25 @@ type value = [
   | `Float(float)
   | `Int(int)
   | `Boolean(bool)
+  | `Object(list((string, value)))
+  | `List(list(value))
+  | `Null
 ];
+
+let rec serializeValue: value => Js.Json.t =
+  fun
+  | `String(string) => Js.Json.string(string)
+  | `Float(float) => Js.Json.number(float)
+  | `Int(int) => Js.Json.number(float_of_int(int))
+  | `Boolean(bool) => Js.Json.boolean(bool)
+  | `List(list) =>
+    list |> List.map(item => serializeValue(item)) |> Array.of_list |> Js.Json.array
+  | `Object(assocList) => {
+      let dict = Js.Dict.empty();
+      assocList |> List.iter(((name, value)) => Js.Dict.set(dict, name, serializeValue(value)));
+      Js.Json.object_(dict);
+    }
+  | `Null => Js.Json.null;
 
 type scalar('src) = {
   name: string,
@@ -17,8 +35,21 @@ type scalar('src) = {
   serialize: 'src => value,
 };
 
+type enum('a) = {
+  name: string,
+  description: option(string),
+  values: list(enum('a)),
+}
+and enumValue('a) = {
+  name: string,
+  description: option(string),
+  deprecated: deprecation,
+  value: 'a,
+};
+
 type typ('src) =
   | Scalar(scalar('src)): typ('src)
+  | Enum(enum('src)): typ('src)
   | List(typ('src)): typ(list('src))
   | Object(obj('src)): typ('src)
   | Interface(interface('src)): typ('src)
@@ -44,54 +75,64 @@ and fieldDefinition('src, 'out) = {
   deprecated: deprecation,
 };
 
-let field =
-    (~description=None, ~deprecated=NotDeprecated, ~resolve, name, typ) =>
+type t = {
+  query: obj(unit),
+  /* mutation: obj(unit), */
+};
+
+let field = (~description=None, ~deprecated=NotDeprecated, ~resolve, name, typ) =>
   Field({name, typ, resolve, deprecated, description});
 
 let scalar = (~description=None, ~parse, ~serialize, name) =>
   Scalar({name, description, parse, serialize});
 
 let obj = (~description=None, ~implements=[], ~fields, name) => {
-  let rec self =
-    Object({name, description, fields: lazy (fields(self)), implements});
+  let rec self = Object({name, description, fields: lazy (fields(self)), implements});
   self;
 };
 
+let queryType = (fields) => {
+  name: "query",
+  description: None,
+  fields: lazy fields,
+  implements: [],
+};
+
 let string =
-  scalar(
-    "String",
-    ~serialize=str => `String(str),
-    ~parse=
-      input =>
-        switch (input) {
-        | `String(str) => str
-        | _ => failwith("Not a string")
-        },
-  );
+  Scalar({
+    name: "String",
+    description: None,
+    serialize: str => `String(str),
+    parse: input =>
+      switch (input) {
+      | `String(str) => str
+      | _ => failwith("Not a string")
+      },
+  });
 
 let int =
-  scalar(
-    "Int",
-    ~serialize=int => `Int(int),
-    ~parse=
-      input =>
-        switch (input) {
-        | `Int(int) => int
-        | _ => failwith("Not an integer")
-        },
-  );
+  Scalar({
+    name: "Int",
+    description: None,
+    serialize: int => `Int(int),
+    parse: input =>
+      switch (input) {
+      | `Int(int) => int
+      | _ => failwith("Not an integer")
+      },
+  });
 
 let float =
-  scalar(
-    "Float",
-    ~serialize=float => `Float(float),
-    ~parse=
-      input =>
-        switch (input) {
-        | `Float(float) => float
-        | _ => failwith("Not a float")
-        },
-  );
+  Scalar({
+    name: "Float",
+    description: None,
+    serialize: float => `Float(float),
+    parse: input =>
+      switch (input) {
+      | `Float(float) => float
+      | _ => failwith("Not a float")
+      },
+  });
 
 let boolean =
   Scalar({
@@ -104,7 +145,3 @@ let boolean =
       | _ => failwith("Not a boolean")
       },
   });
-
-let a = "df".[0];
-
-let b = lazy 6;

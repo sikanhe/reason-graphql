@@ -1,3 +1,5 @@
+[%%debugger.chrome];
+
 open Schema;
 
 let datetime =
@@ -16,16 +18,42 @@ type person = {
   name: string,
   age: int,
   children: list(person),
-  birthday: Js.Date.t,
 };
 
 let personObject =
   obj("person", ~fields=person =>
     [
       field("name", string, ~resolve=p => p.name),
-      field("age", Nullable(int), ~resolve=p => Some(p.age)),
+      field("age", int, ~resolve=p => p.age),
       field("children", List(person), ~resolve=p => p.children),
-      field("birthday", datetime, ~resolve=p => p.birthday),
     ]
   );
 
+let queryType =
+  queryType([
+    field("random", int, ~resolve=_ => 3),
+    field("person", personObject, ~resolve=_ =>
+      {name: "sikan", age: 12, children: [{name: "Sikan", age: 2, children: []}]}
+    ),
+  ]);
+
+let schema = {query: queryType};
+
+let q = {|
+  query {
+    random
+    person {
+      name
+      age
+      children {
+        name
+        age
+      }
+    }
+  }
+|};
+
+let res = schema->Execution.execute(~document=Parser.parse(q));
+let json = res->serializeValue;
+
+Js.log(json);

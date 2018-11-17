@@ -2,8 +2,13 @@
 'use strict';
 
 var Block = require("bs-platform/lib/js/block.js");
+var Belt_Debug = require("bs-platform/lib/js/belt_Debug.js");
 var Pervasives = require("bs-platform/lib/js/pervasives.js");
+var Parser$ReasonGraphqlServer = require("./Parser.bs.js");
 var Schema$ReasonGraphqlServer = require("./Schema.bs.js");
+var Execution$ReasonGraphqlServer = require("./Execution.bs.js");
+
+Belt_Debug.setupChromeDebugger(/* () */0);
 
 var datetime = Schema$ReasonGraphqlServer.scalar(undefined, (function (input) {
         if (typeof input === "number" || input[0] !== -976970511) {
@@ -26,22 +31,63 @@ var personObject = Schema$ReasonGraphqlServer.obj(undefined, undefined, (functio
                   /* :: */Block.simpleVariant("::", [
                       Schema$ReasonGraphqlServer.field(undefined, undefined, (function (p) {
                               return p[/* age */1];
-                            }), "age", /* Nullable */Block.variant("Nullable", 4, [Schema$ReasonGraphqlServer.$$int])),
+                            }), "age", Schema$ReasonGraphqlServer.$$int),
                       /* :: */Block.simpleVariant("::", [
                           Schema$ReasonGraphqlServer.field(undefined, undefined, (function (p) {
                                   return p[/* children */2];
-                                }), "children", /* List */Block.variant("List", 1, [person])),
-                          /* :: */Block.simpleVariant("::", [
-                              Schema$ReasonGraphqlServer.field(undefined, undefined, (function (p) {
-                                      return p[/* birthday */3];
-                                    }), "birthday", datetime),
-                              /* [] */0
-                            ])
+                                }), "children", /* List */Block.variant("List", 2, [person])),
+                          /* [] */0
                         ])
                     ])
                 ]);
       }), "person");
 
+var queryType = Schema$ReasonGraphqlServer.queryType(/* :: */Block.simpleVariant("::", [
+        Schema$ReasonGraphqlServer.field(undefined, undefined, (function () {
+                return 3;
+              }), "random", Schema$ReasonGraphqlServer.$$int),
+        /* :: */Block.simpleVariant("::", [
+            Schema$ReasonGraphqlServer.field(undefined, undefined, (function () {
+                    return /* record */Block.record([
+                              "name",
+                              "age",
+                              "children"
+                            ], [
+                              "sikan",
+                              12,
+                              Block.simpleVariant("::", [
+                                  /* record */Block.record([
+                                      "name",
+                                      "age",
+                                      "children"
+                                    ], [
+                                      "Sikan",
+                                      2,
+                                      0
+                                    ]),
+                                  /* [] */0
+                                ])
+                            ]);
+                  }), "person", personObject),
+            /* [] */0
+          ])
+      ]));
+
+var schema = /* record */Block.record(["query"], [queryType]);
+
+var q = "\n  query {\n    random\n    person {\n      name\n      age\n      children {\n        name\n        age\n      }\n    }\n  }\n";
+
+var res = Execution$ReasonGraphqlServer.execute(undefined, schema, Parser$ReasonGraphqlServer.parse(q));
+
+var json = Schema$ReasonGraphqlServer.serializeValue(res);
+
+console.log(json);
+
 exports.datetime = datetime;
 exports.personObject = personObject;
-/* datetime Not a pure module */
+exports.queryType = queryType;
+exports.schema = schema;
+exports.q = q;
+exports.res = res;
+exports.json = json;
+/*  Not a pure module */

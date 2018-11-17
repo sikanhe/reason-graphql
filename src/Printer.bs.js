@@ -84,18 +84,16 @@ function printType(param) {
   }
 }
 
-function printVariableDef($$var) {
-  return printValue($$var[/* variable */0]);
+function printVariableDef(param) {
+  return printValue(param[/* variable */0]) + (": " + printType(param[/* typ */1]));
 }
 
 function printVariables(vars) {
-  return join(Belt_List.map(vars, (function (varDef) {
-                    return printValue(varDef[/* variable */0]) + (": " + printType(varDef[/* typ */1]));
-                  })), ", ");
+  return join(Belt_List.map(vars, printVariableDef), ", ");
 }
 
-function printArgument(arg) {
-  return arg[/* name */0] + (": " + printValue(arg[/* value */1]));
+function printArgument(param) {
+  return param[/* name */0] + (": " + printValue(param[/* value */1]));
 }
 
 function printArguments(args) {
@@ -138,10 +136,6 @@ function printAlias(param) {
   }
 }
 
-function printFragmentSpread(param) {
-  return "..." + (param[/* name */0] + wrap(" ", printDirectives(param[/* directives */1]), ""));
-}
-
 function printInlineFragmentDefinition(param) {
   return join(/* :: */Block.simpleVariant("::", [
                 "...",
@@ -158,6 +152,10 @@ function printInlineFragmentDefinition(param) {
               ]), " ");
 }
 
+function printFragmentSpread(param) {
+  return "..." + (param[/* name */0] + wrap(" ", printDirectives(param[/* directives */1]), ""));
+}
+
 function printField(param) {
   return join(/* :: */Block.simpleVariant("::", [
                 printAlias(param[/* alias */0]) + (param[/* name */1] + wrap("(", printArguments(param[/* arguments */2]), ")")),
@@ -171,22 +169,21 @@ function printField(param) {
               ]), " ");
 }
 
-function printSelectionSet(set) {
-  return block(Belt_List.map(set, printSelection));
+function printSelectionSet(selectionSet) {
+  return block(Belt_List.map(selectionSet, printSelection));
 }
 
 function printOperationDef(operationDef) {
-  var match = operationDef[/* operationType */0];
-  var op;
-  switch (match) {
+  var operationTypeStr;
+  switch (operationDef[/* operationType */0]) {
     case 0 : 
-        op = "query";
+        operationTypeStr = "query";
         break;
     case 1 : 
-        op = "mutation";
+        operationTypeStr = "mutation";
         break;
     case 2 : 
-        op = "subscription";
+        operationTypeStr = "subscription";
         break;
     
   }
@@ -201,7 +198,7 @@ function printOperationDef(operationDef) {
   }
   if (exit === 1) {
     return join(/* :: */Block.simpleVariant("::", [
-                  op,
+                  operationTypeStr,
                   /* :: */Block.simpleVariant("::", [
                       join(/* :: */Block.simpleVariant("::", [
                               printOpt(operationDef[/* name */1]),
