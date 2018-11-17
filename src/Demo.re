@@ -17,14 +17,16 @@ let datetime =
 type person = {
   name: string,
   age: int,
+  birthday: Js.Date.t,
   children: list(person),
 };
 
 let personObject =
-  obj("person", ~fields=person =>
+  obj("Person", ~fields=person =>
     [
       field("name", string, ~resolve=p => p.name),
       field("age", int, ~resolve=p => p.age),
+      field("birthday", datetime, ~resolve=p => p.birthday),
       field("children", List(person), ~resolve=p => p.children),
     ]
   );
@@ -33,7 +35,14 @@ let queryType =
   queryType([
     field("random", int, ~resolve=_ => 3),
     field("person", personObject, ~resolve=_ =>
-      {name: "sikan", age: 12, children: [{name: "Sikan", age: 2, children: []}]}
+      {
+        name: "sikan",
+        age: 12,
+        birthday: Js.Date.fromString("1993/4/13"),
+        children: [
+          {name: "Sikan", age: 2, birthday: Js.Date.fromString("1993/4/13"), children: []},
+        ],
+      }
     ),
   ]);
 
@@ -43,12 +52,18 @@ let q = {|
   query {
     random
     person {
+      ...personFields
+    }
+  }
+
+  fragment personFields on Person {
+    name
+    age
+    birthday
+    children {
       name
       age
-      children {
-        name
-        age
-      }
+      birthday
     }
   }
 |};

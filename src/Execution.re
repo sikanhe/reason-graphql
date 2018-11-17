@@ -1,4 +1,3 @@
-open Schema;
 module StringMap = Map.Make(String);
 
 type variables = StringMap.t(Ast.value);
@@ -18,9 +17,10 @@ type result('a, 'b) =
 type executionErorr =
   | OperationNotFound;
 
-let matchesTypeCondition = (typeCondition: string, obj: obj('src)) => typeCondition == obj.name;
+let matchesTypeCondition = (typeCondition: string, obj: Schema.obj('src)) =>
+  typeCondition == obj.name;
 
-let rec collectFields: (fragments, obj('src), list(Ast.selection)) => list(Ast.field) =
+let rec collectFields: (fragments, Schema.obj('src), list(Ast.selection)) => list(Ast.field) =
   (fragments, obj, selectionSet) =>
     selectionSet
     |> List.map(
@@ -43,40 +43,41 @@ let fieldName: Ast.field => string =
   | {alias: Some(alias)} => alias
   | {name} => name;
 
-let getObjField = (fieldName: string, obj: obj('src)): field('src) =>
-  obj.fields |> Lazy.force |> List.find((Field(field)) => field.name == fieldName);
+let getObjField = (fieldName: string, obj: Schema.obj('src)): Schema.field('src) =>
+  obj.fields |> Lazy.force |> List.find((Schema.Field(field)) => field.name == fieldName);
 
-let rec resolveType: type src. (executionContext, src, Ast.field, typ(src)) => value =
+let rec resolveType: type src. (executionContext, src, Ast.field, Schema.typ(src)) => Schema.value =
   (executionContext, src, field, typ) =>
     switch (typ) {
-    | Scalar(scalar) => scalar.serialize(src)
-    | Object(obj) =>
+    | Schema.Scalar(scalar) => scalar.serialize(src)
+    | Schema.Object(obj) =>
       let fields = collectFields(executionContext.fragments, obj, field.selectionSet);
       `Object(resolveFields(executionContext, src, obj, fields));
-    | List(typ') =>
+    | Schema.List(typ') =>
       `List(src |> List.map(srcItem => resolveType(executionContext, srcItem, field, typ')))
     | _ => failwith("resolve type Not implemented")
     }
 and resolveField:
-  type src. (executionContext, src, Ast.field, Schema.field(src)) => (string, value) =
-  (executionContext, src, field, Field(fieldDef)) => {
+  type src. (executionContext, src, Ast.field, Schema.field(src)) => (string, Schema.value) =
+  (executionContext, src, field, Schema.Field(fieldDef)) => {
     let name = fieldName(field);
     let out = fieldDef.resolve(src);
     (name, resolveType(executionContext, out, field, fieldDef.typ));
   }
 and resolveFields:
-  type src. (executionContext, src, obj(src), list(Ast.field)) => list((string, value)) =
+  type src.
+    (executionContext, src, Schema.obj(src), list(Ast.field)) => list((string, Schema.value)) =
   (executionContext, src, obj, fields) =>
     List.map(
       (field: Ast.field) => {
-        let objField: field(src) = getObjField(field.name, obj);
+        let objField = getObjField(field.name, obj);
         resolveField(executionContext, src, field, objField);
       },
       fields,
     );
 
 let executeOperation =
-    (schema: t, fragments: fragments, operation: Ast.operationDefinition): value =>
+    (schema: Schema.t, fragments: fragments, operation: Ast.operationDefinition): Schema.value =>
   switch (operation.operationType) {
   | Query =>
     let fields = collectFields(fragments, schema.query, operation.selectionSet);
@@ -103,9 +104,20 @@ let collectOperations = (document: Ast.document) =>
     document.definitions,
   );
 
-let execute = (~variables=StringMap.empty, schema: t, ~document: Ast.document) => {
+let collectFragments = (document: Ast.document) =>
+  List.fold_left(
+    (fragments, x) =>
+      switch (x) {
+      | Ast.FragmentDefinition(fragment) => fragments |> StringMap.add(fragment.name, fragment)
+      | _ => fragments
+      },
+    StringMap.empty,
+    document.definitions,
+  );
+
+let execute = (~variables=StringMap.empty, schema: Schema.t, ~document: Ast.document) => {
   let operations = collectOperations(document);
-  let fragments = StringMap.empty;
-  let [data] = operations |> List.map(executeOperation(schema, fragments));
+  let fragments = collectFragments(document);
+  let data = operations |> List.map(executeOperation(schema, fragments)) |> List.hd;
   `Object([("data", data)]);
 };
