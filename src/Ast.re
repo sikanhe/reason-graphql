@@ -1,5 +1,29 @@
 module StringMap = Map.Make(String);
 
+/* Values */
+
+type primitiveValue = [
+  | `Int(int)
+  | `Float(float)
+  | `Boolean(bool)
+  | `String(string)
+  | `Enum(string)
+  | `Null
+];
+
+type constValue = [
+  primitiveValue
+  | `List(list(constValue))
+  | `Map(StringMap.t(constValue))
+];
+
+type value = [
+  primitiveValue
+  | `List(list(value))
+  | `Map(StringMap.t(value))
+  | `Variable(string)
+];
+
 type document = {definitions: list(definition)}
 and definition =
   | OperationDefinition(operationDefinition)
@@ -18,7 +42,7 @@ and operationType =
 and variableDefinition = {
   variable: value,
   typ: typeReference,
-  defaultValue: option(value),
+  defaultValue: option(constValue),
   directives: list(directive),
 }
 and selection =
@@ -52,17 +76,6 @@ and fragmentSpread = {
   name: string,
   directives: list(directive),
 }
-/* Values */
-and value =
-  | Int(int)
-  | Float(float)
-  | Boolean(bool)
-  | String(string)
-  | Enum(string)
-  | List(list(value))
-  | Object(StringMap.t(value))
-  | Variable(string)
-  | Null
 /* Directives */
 and directive = {
   name: string,
@@ -104,7 +117,7 @@ and fieldDefinition = {
 and inputValueDefinition = {
   name: string,
   typ: typeReference,
-  defaultValue: option(value),
+  defaultValue: option(constValue),
 }
 and interfaceTypeDefinition = {
   name: string,

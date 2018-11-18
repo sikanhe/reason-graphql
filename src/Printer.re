@@ -17,15 +17,15 @@ let block =
 
 let rec printValue =
   fun
-  | Int(int) => string_of_int(int)
-  | Float(float) => string_of_float(float)
-  | String(string) => string
-  | Boolean(bool) => string_of_bool(bool)
-  | Null => "null"
-  | Variable(string) => "$" ++ string
-  | Enum(enum) => enum
-  | List(values) => "[" ++ join(values->List.map(printValue), ", ") ++ "]"
-  | Object(fields) => "{" ++ printObjectFields(fields) ++ "}"
+  | `Int(int) => string_of_int(int)
+  | `Float(float) => string_of_float(float)
+  | `String(string) => string
+  | `Boolean(bool) => string_of_bool(bool)
+  | `Null => "null"
+  | `Variable(string) => "$" ++ string
+  | `Enum(enum) => enum
+  | `List(values) => "[" ++ join(values->List.map(printValue), ", ") ++ "]"
+  | `Map(fields) => "{" ++ printObjectFields(fields) ++ "}"
 and printObjectFields = fields =>
   fields->Ast.StringMap.bindings->List.map(printObjectField)->join(", ")
 and printObjectField = ((k, v)) => k ++ ":" ++ printValue(v);

@@ -365,5 +365,4 @@ let lookahead = lexer => {
 let advance = lexer => {
   lexer.lastToken = lexer.token;
   lexer.token = lookahead(lexer);
-  lexer.token;
 };

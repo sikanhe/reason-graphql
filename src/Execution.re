@@ -46,15 +46,18 @@ let fieldName: Ast.field => string =
 let getObjField = (fieldName: string, obj: Schema.obj('src)): Schema.field('src) =>
   obj.fields |> Lazy.force |> List.find((Schema.Field(field)) => field.name == fieldName);
 
-let rec resolveType: type src. (executionContext, src, Ast.field, Schema.typ(src)) => Schema.value =
+let rec resolveValue:
+  type src. (executionContext, src, Ast.field, Schema.typ(src)) => Schema.value =
   (executionContext, src, field, typ) =>
     switch (typ) {
     | Schema.Scalar(scalar) => scalar.serialize(src)
+    | Schema.Enum({values}) =>
+      `String(List.find(({Schema.value}) => value == src, values).name)
     | Schema.Object(obj) =>
       let fields = collectFields(executionContext.fragments, obj, field.selectionSet);
-      `Object(resolveFields(executionContext, src, obj, fields));
+      `Map(resolveFields(executionContext, src, obj, fields));
     | Schema.List(typ') =>
-      `List(src |> List.map(srcItem => resolveType(executionContext, srcItem, field, typ')))
+      `List(src |> List.map(srcItem => resolveValue(executionContext, srcItem, field, typ')))
     | _ => failwith("resolve type Not implemented")
     }
 and resolveField:
@@ -62,7 +65,7 @@ and resolveField:
   (executionContext, src, field, Schema.Field(fieldDef)) => {
     let name = fieldName(field);
     let out = fieldDef.resolve(src);
-    (name, resolveType(executionContext, out, field, fieldDef.typ));
+    (name, resolveValue(executionContext, out, field, fieldDef.typ));
   }
 and resolveFields:
   type src.
@@ -81,7 +84,7 @@ let executeOperation =
   switch (operation.operationType) {
   | Query =>
     let fields = collectFields(fragments, schema.query, operation.selectionSet);
-    `Object(
+    `Map(
       resolveFields(
         {schema, fragments, operation, variables: StringMap.empty},
         (),
@@ -115,9 +118,10 @@ let collectFragments = (document: Ast.document) =>
     document.definitions,
   );
 
-let execute = (~variables=StringMap.empty, schema: Schema.t, ~document: Ast.document) => {
+let execute =
+    (~variables=StringMap.empty, schema: Schema.t, ~document: Ast.document): Schema.value => {
   let operations = collectOperations(document);
   let fragments = collectFragments(document);
   let data = operations |> List.map(executeOperation(schema, fragments)) |> List.hd;
-  `Object([("data", data)]);
+  `Map([("data", data)]);
 };

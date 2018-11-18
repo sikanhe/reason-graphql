@@ -14,9 +14,17 @@ let datetime =
         },
   );
 
+type gender =
+  | Male
+  | Female;
+
+let gender =
+  enum("Gender", ~values=[enumValue("Male", ~value=Male), enumValue("Female", ~value=Female)]);
+
 type person = {
   name: string,
   age: int,
+  gender,
   birthday: Js.Date.t,
   children: list(person),
 };
@@ -26,6 +34,7 @@ let personObject =
     [
       field("name", string, ~resolve=p => p.name),
       field("age", int, ~resolve=p => p.age),
+      field("gender", gender, ~resolve=p => p.gender),
       field("birthday", datetime, ~resolve=p => p.birthday),
       field("children", List(person), ~resolve=p => p.children),
     ]
@@ -38,9 +47,16 @@ let queryType =
       {
         name: "sikan",
         age: 12,
+        gender: Male,
         birthday: Js.Date.fromString("1993/4/13"),
         children: [
-          {name: "Sikan", age: 2, birthday: Js.Date.fromString("1993/4/13"), children: []},
+          {
+            name: "Sikan",
+            age: 2,
+            gender: Male,
+            birthday: Js.Date.fromString("1993/4/13"),
+            children: [],
+          },
         ],
       }
     ),
@@ -59,10 +75,12 @@ let q = {|
   fragment personFields on Person {
     name
     age
+    gender
     birthday
     children {
       name
       age
+      gender
       birthday
     }
   }

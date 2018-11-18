@@ -111,7 +111,7 @@ let many =
 
 let parseStringLiteral = ({token} as lexer: Lexer.t) => {
   Lexer.advance(lexer)->ignore;
-  String(token.value);
+  `String(token.value);
 };
 
 let parseName = (lexer: Lexer.t) => {
@@ -126,7 +126,7 @@ let parseNamedType = (lexer: Lexer.t) => NamedType(parseName(lexer));
  */
 let parseVariable = (lexer: Lexer.t) => {
   expect(lexer, DOLLAR)->ignore;
-  Variable(parseName(lexer));
+  `Variable(parseName(lexer));
 };
 
 /**
@@ -153,25 +153,25 @@ let rec parseValueLiteral = ({token} as lexer: Lexer.t, ~isConst: bool) =>
   | BRACE_L => parseObject(lexer, ~isConst)
   | INT =>
     Lexer.advance(lexer)->ignore;
-    Int(int_of_string(token.value));
+    `Int(int_of_string(token.value));
   | FLOAT =>
     Lexer.advance(lexer)->ignore;
-    Float(float_of_string(token.value));
+    `Float(float_of_string(token.value));
   | STRING => parseStringLiteral(lexer)
   | NAME =>
     switch (token.value) {
     | "true" =>
       Lexer.advance(lexer)->ignore;
-      Boolean(true);
+      `Boolean(true);
     | "false" =>
       Lexer.advance(lexer)->ignore;
-      Boolean(false);
+      `Boolean(false);
     | "null" =>
       Lexer.advance(lexer)->ignore;
-      Null;
+      `Null;
     | enum =>
       Lexer.advance(lexer)->ignore;
-      Enum(enum);
+      `Enum(enum);
     }
   | DOLLAR when !isConst => parseVariable(lexer)
   | _ => unexpected(lexer)
@@ -183,7 +183,7 @@ let rec parseValueLiteral = ({token} as lexer: Lexer.t, ~isConst: bool) =>
  */
 and parseList = (lexer: Lexer.t, ~isConst: bool) => {
   let parseFn = parseValueLiteral(~isConst);
-  List(any(lexer, BRACKET_L, parseFn, BRACKET_R));
+  `List(any(lexer, BRACKET_L, parseFn, BRACKET_R));
 }
 /**
  * ObjectValue[Const] :
@@ -197,7 +197,7 @@ and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
     let (name, value) = parseObjectField(lexer, ~isConst);
     fields := fields^ |> StringMap.add(name, value);
   };
-  Object(fields^);
+  `Map(fields^);
 }
 /**
  * ObjectField[Const] : Name : Value[?Const]

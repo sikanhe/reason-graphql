@@ -8,7 +8,7 @@ type value = [
   | `Float(float)
   | `Int(int)
   | `Boolean(bool)
-  | `Object(list((string, value)))
+  | `Map(list((string, value)))
   | `List(list(value))
   | `Null
 ];
@@ -21,7 +21,7 @@ let rec serializeValue: value => Js.Json.t =
   | `Boolean(bool) => Js.Json.boolean(bool)
   | `List(list) =>
     list |> List.map(item => serializeValue(item)) |> Array.of_list |> Js.Json.array
-  | `Object(assocList) => {
+  | `Map(assocList) => {
       let dict = Js.Dict.empty();
       assocList |> List.iter(((name, value)) => Js.Dict.set(dict, name, serializeValue(value)));
       Js.Json.object_(dict);
@@ -38,7 +38,7 @@ type scalar('src) = {
 type enum('a) = {
   name: string,
   description: option(string),
-  values: list(enum('a)),
+  values: list(enumValue('a)),
 }
 and enumValue('a) = {
   name: string,
@@ -86,13 +86,26 @@ let field = (~description=None, ~deprecated=NotDeprecated, ~resolve, name, typ) 
 let scalar = (~description=None, ~parse, ~serialize, name) =>
   Scalar({name, description, parse, serialize});
 
+let enum = (~description=None, ~values, name) => Enum({
+  name,
+  description,
+  values
+});
+
+let enumValue = (~description=None, ~deprecated=NotDeprecated, ~value, name) => {
+  name,
+  description,
+  deprecated,
+  value
+};
+
 let obj = (~description=None, ~implements=[], ~fields, name) => {
   let rec self = Object({name, description, fields: lazy (fields(self)), implements});
   self;
 };
 
 let queryType = (fields) => {
-  name: "query",
+  name: "Query",
   description: None,
   fields: lazy fields,
   implements: [],
