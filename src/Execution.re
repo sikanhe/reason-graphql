@@ -1,5 +1,5 @@
 module StringMap = Map.Make(String);
-
+open Belt;
 type variables = StringMap.t(Ast.value);
 type fragments = StringMap.t(Ast.fragmentDefinition);
 
@@ -23,41 +23,44 @@ let matchesTypeCondition = (typeCondition: string, obj: Schema.obj('src)) =>
 let rec collectFields: (fragments, Schema.obj('src), list(Ast.selection)) => list(Ast.field) =
   (fragments, obj, selectionSet) =>
     selectionSet
-    |> List.map(
-         fun
-         | Ast.Field(field) => [field]
-         | Ast.FragmentSpread(fragmentSpread) =>
-           switch (StringMap.find(fragmentSpread.name, fragments)) {
-           | {typeCondition, selectionSet} when typeCondition == obj.name =>
-             collectFields(fragments, obj, selectionSet)
-           | exception Not_found => []
-           | _ => []
-           }
-         | Ast.InlineFragment(inlineFragment) =>
-           collectFields(fragments, obj, inlineFragment.selectionSet),
-       )
-    |> List.concat;
+    ->List.map(
+        fun
+        | Ast.Field(field) => [field]
+        | Ast.FragmentSpread(fragmentSpread) =>
+          switch (StringMap.find(fragmentSpread.name, fragments)) {
+          | {typeCondition, selectionSet} when matchesTypeCondition(typeCondition, obj) =>
+            collectFields(fragments, obj, selectionSet)
+          | exception Not_found => []
+          | _ => []
+          }
+        | Ast.InlineFragment(inlineFragment) =>
+          collectFields(fragments, obj, inlineFragment.selectionSet),
+      )
+    ->List.flatten;
 
 let fieldName: Ast.field => string =
   fun
   | {alias: Some(alias)} => alias
-  | {name} => name;
+  | field => field.name;
 
-let getObjField = (fieldName: string, obj: Schema.obj('src)): Schema.field('src) =>
-  obj.fields |> Lazy.force |> List.find((Schema.Field(field)) => field.name == fieldName);
+let getObjField = (fieldName: string, obj: Schema.obj('src)): option(Schema.field('src)) =>
+  obj.fields->Lazy.force->List.getBy((Schema.Field(field)) => field.name == fieldName);
 
 let rec resolveValue:
   type src. (executionContext, src, Ast.field, Schema.typ(src)) => Schema.value =
   (executionContext, src, field, typ) =>
     switch (typ) {
     | Schema.Scalar(scalar) => scalar.serialize(src)
-    | Schema.Enum({values}) =>
-      `String(List.find(({Schema.value}) => value == src, values).name)
+    | Schema.Enum(enum) =>
+      switch (List.getBy(enum.values, enumValue => enumValue.value == src)) {
+      | Some(enumValue) => `String(enumValue.name)
+      | None => `Null
+      }
     | Schema.Object(obj) =>
       let fields = collectFields(executionContext.fragments, obj, field.selectionSet);
       `Map(resolveFields(executionContext, src, obj, fields));
     | Schema.List(typ') =>
-      `List(src |> List.map(srcItem => resolveValue(executionContext, srcItem, field, typ')))
+      `List(List.map(src, srcItem => resolveValue(executionContext, srcItem, field, typ')))
     | _ => failwith("resolve type Not implemented")
     }
 and resolveField:
@@ -71,12 +74,11 @@ and resolveFields:
   type src.
     (executionContext, src, Schema.obj(src), list(Ast.field)) => list((string, Schema.value)) =
   (executionContext, src, obj, fields) =>
-    List.map(
-      (field: Ast.field) => {
-        let objField = getObjField(field.name, obj);
-        resolveField(executionContext, src, field, objField);
-      },
-      fields,
+    List.map(fields, (field: Ast.field) =>
+      switch (getObjField(field.name, obj)) {
+      | Some(objField) => resolveField(executionContext, src, field, objField)
+      | None => failwith("Field " ++ field.name ++ "is not defined on type " ++ obj.name)
+      }
     );
 
 let executeOperation =
@@ -97,31 +99,25 @@ let executeOperation =
   };
 
 let collectOperations = (document: Ast.document) =>
-  List.fold_left(
-    (list, x) =>
-      switch (x) {
-      | Ast.OperationDefinition(operation) => [operation, ...list]
-      | _ => list
-      },
-    [],
-    document.definitions,
+  List.reduceReverse(document.definitions, [], (list, x) =>
+    switch (x) {
+    | Ast.OperationDefinition(operation) => [operation, ...list]
+    | _ => list
+    }
   );
 
 let collectFragments = (document: Ast.document) =>
-  List.fold_left(
-    (fragments, x) =>
-      switch (x) {
-      | Ast.FragmentDefinition(fragment) => fragments |> StringMap.add(fragment.name, fragment)
-      | _ => fragments
-      },
-    StringMap.empty,
-    document.definitions,
+  List.reduceReverse(document.definitions, StringMap.empty, (fragments, x) =>
+    switch (x) {
+    | Ast.FragmentDefinition(fragment) => fragments |> StringMap.add(fragment.name, fragment)
+    | _ => fragments
+    }
   );
 
 let execute =
-    (~variables=StringMap.empty, schema: Schema.t, ~document: Ast.document): Schema.value => {
+    (~_variables=StringMap.empty, schema: Schema.t, ~document: Ast.document): Schema.value => {
   let operations = collectOperations(document);
   let fragments = collectFragments(document);
-  let data = operations |> List.map(executeOperation(schema, fragments)) |> List.hd;
+  let data = operations->List.map(executeOperation(schema, fragments))->List.headExn;
   `Map([("data", data)]);
 };
