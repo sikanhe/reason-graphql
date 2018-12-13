@@ -192,12 +192,16 @@ and parseList = (lexer: Lexer.t, ~isConst: bool) => {
  */
 and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
   expect(lexer, BRACE_L)->ignore;
-  let fields = ref(StringMap.empty);
-  while (!skip(lexer, BRACE_R)) {
-    let (name, value) = parseObjectField(lexer, ~isConst);
-    fields := fields^ |> StringMap.add(name, value);
-  };
-  `Map(fields^);
+
+  let rec makeFields = fields => 
+    if (!skip(lexer, BRACE_R)) {
+      let field = parseObjectField(lexer, ~isConst);
+      makeFields([field, ...fields])
+    } else {
+      fields
+    };
+
+  `Map(makeFields([]));
 }
 /**
  * ObjectField[Const] : Name : Value[?Const]

@@ -1,17 +1,20 @@
 {
-  "name": "reason-graphql-server",
+  "name": "reason-graphql",
   "version": "0.1.0",
   "scripts": {
     "build": "bsb -make-world",
     "start": "bsb -make-world -w",
-    "clean": "bsb -clean-world"
+    "clean": "bsb -clean-world",
+    "test": "yarn build && jest"
   },
   "keywords": [
-    "BuckleScript"
+    "BuckleScript",
+    "GraphQL"
   ],
-  "author": "",
+  "author": "Sikan He",
   "license": "MIT",
   "devDependencies": {
-    "bs-platform": "^4.0.5"
+    "bs-platform": "^4.0.5",
+    "@glennsl/bs-jest": "^0.4.5"
   }
 }
