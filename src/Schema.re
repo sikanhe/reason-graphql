@@ -3,19 +3,9 @@ type deprecation =
   | Deprecated
   | DeprecatedWithReason(string);
 
-type value = [
-  | `String(string)
-  | `Float(float)
-  | `Int(int)
-  | `Boolean(bool)
-  | `Map(list((string, value)))
-  | `List(list(value))
-  | `Null
-];
-
-let rec serializeValue: value => Js.Json.t =
+let rec serializeValue: Ast.constValue => Js.Json.t =
   fun
-  | `String(string) => Js.Json.string(string)
+  | `String(string) | `Enum(string) => Js.Json.string(string)
   | `Float(float) => Js.Json.number(float)
   | `Int(int) => Js.Json.number(float_of_int(int))
   | `Boolean(bool) => Js.Json.boolean(bool)
@@ -31,8 +21,8 @@ let rec serializeValue: value => Js.Json.t =
 type scalar('src) = {
   name: string,
   description: option(string),
-  parse: value => 'src,
-  serialize: 'src => value,
+  parse: Ast.constValue => 'src,
+  serialize: 'src => Ast.constValue,
 };
 
 type enum('a) = {
@@ -80,32 +70,34 @@ type t = {
   /* mutation: obj(unit), */
 };
 
-let field = (~description=None, ~deprecated=NotDeprecated, ~resolve, name, typ) =>
+let create = (~query) => {query: query}; 
+
+let field = (~description=?, ~deprecated=NotDeprecated, name, typ, resolve) =>
   Field({name, typ, resolve, deprecated, description});
 
-let scalar = (~description=None, ~parse, ~serialize, name) =>
+let scalar = (~description=?, ~parse, ~serialize, name) =>
   Scalar({name, description, parse, serialize});
 
-let enum = (~description=None, ~values, name) => Enum({
+let enum = (~description=?, ~values, name) => Enum({
   name,
   description,
   values
 });
 
-let enumValue = (~description=None, ~deprecated=NotDeprecated, ~value, name) => {
+let enumValue = (~description=?, ~deprecated=NotDeprecated, ~value, name) => {
   name,
   description,
   deprecated,
   value
 };
 
-let obj = (~description=None, ~implements=[], ~fields, name) => {
+let obj = (~description=?, ~implements=[], ~fields, name) => {
   let rec self = Object({name, description, fields: lazy (fields(self)), implements});
   self;
 };
 
-let queryType = (fields) => {
-  name: "Query",
+let rootQuery = (fields): obj(unit) => {
+  name: "RootQueryType",
   description: None,
   fields: lazy fields,
   implements: [],

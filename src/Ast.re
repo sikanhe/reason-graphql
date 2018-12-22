@@ -14,13 +14,13 @@ type primitiveValue = [
 type constValue = [
   primitiveValue
   | `List(list(constValue))
-  | `Map(StringMap.t(constValue))
+  | `Map(list((string, constValue)))
 ];
 
 type value = [
   primitiveValue
   | `List(list(value))
-  | `Map(StringMap.t(value))
+  | `Map(list((string, value)))
   | `Variable(string)
 ];
 

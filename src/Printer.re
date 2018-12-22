@@ -15,7 +15,7 @@ let block =
   | [] => ""
   | list => "{\n" ++ indent(join(list, "\n")) ++ "\n}";
 
-let rec printValue =
+let rec printValue: Ast.value => string =
   fun
   | `Int(int) => string_of_int(int)
   | `Float(float) => string_of_float(float)
@@ -27,7 +27,7 @@ let rec printValue =
   | `List(values) => "[" ++ join(values->List.map(printValue), ", ") ++ "]"
   | `Map(fields) => "{" ++ printObjectFields(fields) ++ "}"
 and printObjectFields = fields =>
-  fields->Ast.StringMap.bindings->List.map(printObjectField)->join(", ")
+  fields->List.map(printObjectField)->join(", ")
 and printObjectField = ((k, v)) => k ++ ":" ++ printValue(v);
 
 let rec printType =

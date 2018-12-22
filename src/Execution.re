@@ -47,7 +47,7 @@ let getObjField = (fieldName: string, obj: Schema.obj('src)): option(Schema.fiel
   obj.fields->Lazy.force->List.getBy((Schema.Field(field)) => field.name == fieldName);
 
 let rec resolveValue:
-  type src. (executionContext, src, Ast.field, Schema.typ(src)) => Schema.value =
+  type src. (executionContext, src, Ast.field, Schema.typ(src)) => Ast.constValue =
   (executionContext, src, field, typ) =>
     switch (typ) {
     | Schema.Scalar(scalar) => scalar.serialize(src)
@@ -64,7 +64,7 @@ let rec resolveValue:
     | _ => failwith("resolve type Not implemented")
     }
 and resolveField:
-  type src. (executionContext, src, Ast.field, Schema.field(src)) => (string, Schema.value) =
+  type src. (executionContext, src, Ast.field, Schema.field(src)) => (string, Ast.constValue) =
   (executionContext, src, field, Schema.Field(fieldDef)) => {
     let name = fieldName(field);
     let out = fieldDef.resolve(src);
@@ -72,7 +72,7 @@ and resolveField:
   }
 and resolveFields:
   type src.
-    (executionContext, src, Schema.obj(src), list(Ast.field)) => list((string, Schema.value)) =
+    (executionContext, src, Schema.obj(src), list(Ast.field)) => list((string, Ast.constValue)) =
   (executionContext, src, obj, fields) =>
     List.map(fields, (field: Ast.field) =>
       switch (getObjField(field.name, obj)) {
@@ -82,7 +82,7 @@ and resolveFields:
     );
 
 let executeOperation =
-    (schema: Schema.t, fragments: fragments, operation: Ast.operationDefinition): Schema.value =>
+    (schema: Schema.t, fragments: fragments, operation: Ast.operationDefinition): Ast.constValue =>
   switch (operation.operationType) {
   | Query =>
     let fields = collectFields(fragments, schema.query, operation.selectionSet);
@@ -115,7 +115,7 @@ let collectFragments = (document: Ast.document) =>
   );
 
 let execute =
-    (~_variables=StringMap.empty, schema: Schema.t, ~document: Ast.document): Schema.value => {
+    (~variables=StringMap.empty, schema: Schema.t, ~document: Ast.document): Ast.constValue => {
   let operations = collectOperations(document);
   let fragments = collectFragments(document);
   let data = operations->List.map(executeOperation(schema, fragments))->List.headExn;
