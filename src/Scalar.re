@@ -6,10 +6,10 @@ module type ScalarDef = {
 };
 
 module Make = (ScalarDef: ScalarDef) => {
-  let argType =
+  let arg =
     Schema.Arg.{name: ScalarDef.name, parse: ScalarDef.parse, description: ScalarDef.description};
 
-  let fieldType =
+  let field =
     Schema.{
       name: ScalarDef.name,
       serialize: ScalarDef.serialize,

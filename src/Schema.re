@@ -40,17 +40,17 @@ let rec serializeValue: Ast.constValue => Js.Json.t =
     }
   | `Null => Js.Json.null;
 
-type enum('a) = {
-  name: string,
-  description: option(string),
-  values: list(enumValue('a)),
-}
-
-and enumValue('a) = {
+type enumValue('a) = {
   name: string,
   description: option(string),
   deprecated: deprecation,
   value: 'a,
+};
+
+type enum('a) = {
+  name: string,
+  description: option(string),
+  values: list(enumValue('a)),
 };
 
 module Arg = {
@@ -70,8 +70,9 @@ module Arg = {
   }
   and argType(_) =
     | Scalar(scalar('a)): argType('a)
+    | Enum(enum('a)): argType('a)
     | InputObject(inputObject('a, 'b)): argType('a)
-    | Nullable(argType('a)): argType('a)
+    | Nullable(argType('a)): argType(option('a))
     | List(argType('a)): argType(list('a))
   and scalar('a) = {
     name: string,
@@ -196,7 +197,7 @@ module Arg = {
            ~field_name,
            arglist'',
            key_values,
-           fun 
+           fun
            | Some(v) => f(v)
            | None => arg.default
          ); */
@@ -243,11 +244,6 @@ module Arg = {
       Belt.Result.t(a, string) =
     (variable_map, ~field_type=?, ~field_name, ~arg_name, typ, value) =>
       switch (typ, value) {
-      /* | (Nullable(_), Some(`Null)) => Ok(None)
-         | (Nullable(_), None) => Ok(None)
-         | (_, None) => Error(eval_arg_error(~field_type?, ~field_name, ~arg_name, typ, value))
-         | (_, Some(`Null)) =>
-           Error(eval_arg_error(~field_type?, ~field_name, ~arg_name, typ, value)) */
       | (Scalar(s), Some(value)) =>
         switch (s.parse(value)) {
         | Ok(coerced) => Ok(coerced)
@@ -263,41 +259,46 @@ module Arg = {
         | _ => Error(eval_arg_error(~field_type?, ~field_name, ~arg_name, typ, Some(value)))
         }
       /* | (List(typ), Some(value)) =>
-        switch (value) {
-        | `List(values) =>
-          values |> List.map(eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ))
-          let option_values = List.map(x => Some(x), values);
-          Belt.Result.(
-            option_values,
-            eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ),
-          )
-          >>| (coerced => Some(coerced));
-        | value =>
-          eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ, Some(value))
-          >>| ((coerced) => (Some([coerced]): a))
-        } */
-      | (Nullable(typ), value) =>
-        eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ, value)
-      /* | (Enum(e), Some(value)) =>
          switch (value) {
-         | `Enum(v)
-         | `String(v) =>
-           switch (List.find(enum_value => enum_value.name == v, e.values)) {
-           | Some(enum_value) => Ok(Some(enum_value.value))
-           | None =>
-             Error(
-               Printf.sprintf(
-                 "Invalid enum value for argument `%s` on field `%s`",
-                 arg_name,
-                 field_name,
-               ),
-             )
-           }
-         | _ =>
-           Error(
-             Printf.sprintf("Expected enum for argument `%s` on field `%s`", arg_name, field_name),
+         | `List(values) =>
+           values |> List.map(eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ))
+           let option_values = List.map(x => Some(x), values);
+           Belt.Result.(
+             option_values,
+             eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ),
            )
+           >>| (coerced => Some(coerced));
+         | value =>
+           eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ, Some(value))
+           >>| ((coerced) => (Some([coerced]): a))
          } */
+      | (Nullable(_), None) => Ok(None)
+      | (Nullable(_), Some(`Null)) => Ok(None)
+      /* | (Nullable(typ), Some(value)) =>
+        eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ, Some(value)) */
+      | (Enum(e), Some(value)) =>
+        switch (value) {
+        | `Enum(v)
+        | `String(v) =>
+          switch (Belt.List.getBy(e.values, enum_value => enum_value.name == v)) {
+          | Some(enum_value) => Ok(enum_value.value)
+          | None =>
+            Error(
+              Printf.sprintf(
+                "Invalid enum value for argument `%s` on field `%s`",
+                arg_name,
+                field_name,
+              ),
+            )
+          }
+        | _ =>
+          Error(
+            Printf.sprintf("Expected enum for argument `%s` on field `%s`", arg_name, field_name),
+          )
+        }
+      | (_, None) => Error(eval_arg_error(~field_type?, ~field_name, ~arg_name, typ, value))
+      | (_, Some(`Null)) =>
+        Error(eval_arg_error(~field_type?, ~field_name, ~arg_name, typ, value))
       };
 
   /* Built in scalars */
@@ -393,7 +394,15 @@ let create = (~query) => {query: query};
 let field = (~description=?, ~args, ~deprecated=NotDeprecated, name, typ, resolve) =>
   Field({name, typ, resolve, deprecated, description, arguments: args, lift: a => a});
 
-let enum = (~description=?, ~values, name) => Enum({name, description, values});
+type combinedEnum('a) = {
+  argType: Arg.argType('a),
+  fieldType: typ('a),
+};
+
+let makeEnum = (name, ~description=?, values) => {
+  argType: Arg.Enum({name, description, values}),
+  fieldType: Enum({name, description, values}),
+};
 
 let enumValue = (~description=?, ~deprecated=NotDeprecated, ~value, name) => {
   name,

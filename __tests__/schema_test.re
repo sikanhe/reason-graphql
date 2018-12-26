@@ -10,6 +10,7 @@ describe("Parse and print a graphql query", () => {
         name
         appearsIn
       }
+      printInt(int: 5)
     }
   |};
 
@@ -34,6 +35,7 @@ describe("Parse and print a graphql query", () => {
                 ),
               ]),
             ),
+            ("printInt", `Int(5)),
           ]),
         ),
       ]);
