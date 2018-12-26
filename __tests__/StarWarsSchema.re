@@ -16,12 +16,12 @@ let humanType =
   Schema.(
     obj("Human", ~fields=humanType =>
       [
-        field("id", string, (human: StarWars.human) => human.id),
-        field("name", string, (human: StarWars.human) => human.StarWars.name),
-        field("appearsIn", List(episodeEnum), (human: StarWars.human) =>
+        field("id", string, ~args=[], (human: StarWars.human) => human.id),
+        field("name", string, ~args=[], (human: StarWars.human) => human.StarWars.name),
+        field("appearsIn", ~args=[], List(episodeEnum), (human: StarWars.human) =>
           human.StarWars.appearsIn
         ),
-        field("friends", List(humanType), (human: StarWars.human) =>
+        field("friends", ~args=[], List(humanType), (human: StarWars.human) =>
           StarWars.getFriends(human.StarWars.friends)
         ),
       ]
@@ -31,8 +31,10 @@ let humanType =
 let queryType =
   Schema.(
     rootQuery([
-      field("hero", humanType, () => StarWars.getHero("1000")),
-      field("human", humanType, () => StarWars.getHero("1000")),
+      field("hero", humanType, ~args=Arg.[arg'("id", string, ~default="1000")], ((), id) =>
+        StarWars.getHero(id)
+      ),
+      field("human", humanType, ~args=[], () => StarWars.getHero("1000")),
     ])
   );
 

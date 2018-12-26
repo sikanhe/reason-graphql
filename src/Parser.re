@@ -182,12 +182,12 @@ and parseList = (lexer: Lexer.t, ~isConst: bool) => {
 and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
   expect(lexer, BRACE_L)->ignore;
 
-  let rec makeFields = fields => 
+  let rec makeFields = fields =>
     if (!skip(lexer, BRACE_R)) {
       let field = parseObjectField(lexer, ~isConst);
-      makeFields([field, ...fields])
+      makeFields([field, ...fields]);
     } else {
-      fields
+      fields;
     };
 
   `Map(makeFields([]));
@@ -215,16 +215,16 @@ let rec parseTypeReference = (lexer: Lexer.t) => {
   skip(lexer, BANG) ? NonNullType(typ) : typ;
 };
 
-let parseArgument = (lexer: Lexer.t): argument => {
+let parseArgument = (lexer: Lexer.t): (string, Ast.value) => {
   let name = parseName(lexer);
   expect(lexer, COLON);
-  {name, value: parseValueLiteral(lexer, ~isConst=false)};
+  (name, parseValueLiteral(lexer, ~isConst=false));
 };
 
-let parseConstArgument = (lexer: Lexer.t): argument => {
+let parseConstArgument = (lexer: Lexer.t): (string, Ast.value) => {
   let name = parseName(lexer);
   expect(lexer, COLON);
-  {name, value: parseValueLiteral(lexer, ~isConst=true)};
+  (name, parseValueLiteral(lexer, ~isConst=true));
 };
 
 let parseArguments = (lexer: Lexer.t, ~isConst: bool) =>

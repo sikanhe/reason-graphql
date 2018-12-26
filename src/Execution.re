@@ -14,6 +14,8 @@ type result('a, 'b) =
   | Ok('a)
   | Error('b);
 
+exception ResolveError(string);
+
 type executionErorr =
   | OperationNotFound;
 
@@ -46,6 +48,7 @@ let fieldName: Ast.field => string =
 let getObjField = (fieldName: string, obj: Schema.obj('src)): option(Schema.field('src)) =>
   obj.fields->Lazy.force->List.getBy((Schema.Field(field)) => field.name == fieldName);
 
+
 let rec resolveValue:
   type src. (executionContext, src, Ast.field, Schema.typ(src)) => Ast.constValue =
   (executionContext, src, field, typ) =>
@@ -63,13 +66,29 @@ let rec resolveValue:
       `List(List.map(src, srcItem => resolveValue(executionContext, srcItem, field, typ')))
     | _ => failwith("resolve type Not implemented")
     }
+
 and resolveField:
   type src. (executionContext, src, Ast.field, Schema.field(src)) => (string, Ast.constValue) =
   (executionContext, src, field, Schema.Field(fieldDef)) => {
     let name = fieldName(field);
-    let out = fieldDef.resolve(src);
-    (name, resolveValue(executionContext, out, field, fieldDef.typ));
+    let resolver = fieldDef.resolve(src);
+
+    switch (
+      Schema.Arg.eval_arglist(
+        StringMap.empty,
+        ~field_name=fieldDef.name,
+        fieldDef.arguments,
+        field.arguments,
+        resolver,
+      )
+    ) {
+    | Ok(unlifted) =>
+      let lifted = fieldDef.lift(unlifted);
+      (name, resolveValue(executionContext, lifted, field, fieldDef.typ));
+    | Error(e) => raise(ResolveError(e))
+    };
   }
+
 and resolveFields:
   type src.
     (executionContext, src, Schema.obj(src), list(Ast.field)) => list((string, Ast.constValue)) =
