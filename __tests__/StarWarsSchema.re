@@ -31,16 +31,8 @@ let humanType =
 let queryType =
   Schema.(
     rootQuery([
-      field("hero", humanType, ~args=[], () => StarWars.getHero("1000")),
-      field("human", humanType, ~args=[], () => StarWars.getHero("1000")),
-      field("printInt", int,~args=Arg.[arg("int", int)], ((), n) => n),
-      field(
-        "printEpisode", string, ~args=Arg.[arg("episode", episodeEnum.argType)], ((), episode) =>
-        switch (episode) {
-        | NEWHOPE => "NEWHOPE"
-        | EMPIRE => "EMPIRE"
-        | JEDI => "JEDI"
-        }
+      field("hero", humanType, ~args=Arg.[arg("id", int)], ((), id) =>
+        StarWars.getHero(string_of_int(id))
       ),
     ])
   );

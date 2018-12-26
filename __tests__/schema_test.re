@@ -5,12 +5,11 @@ describe("Parse and print a graphql query", () => {
 
   let query = {|
     {
-      hero {
+      hero(id: 1000) {
         id
         name
         appearsIn
       }
-      printInt(int: 5)
     }
   |};
 
@@ -34,8 +33,7 @@ describe("Parse and print a graphql query", () => {
                   `List([`String("NEWHOPE"), `String("JEDI"), `String("EMPIRE")]),
                 ),
               ]),
-            ),
-            ("printInt", `Int(5)),
+            )
           ]),
         ),
       ]);

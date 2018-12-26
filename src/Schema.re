@@ -150,7 +150,7 @@ module Arg = {
     fun
     | Scalar(a) => Printf.sprintf("%s!", a.name)
     | InputObject(a) => Printf.sprintf("%s!", a.name)
-    /* | Enum(a) => a.name */
+    | Enum(a) => Printf.sprintf("%s!", a.name)
     | List(a) => Printf.sprintf("[%s]", string_of_arg_typ(a))
     | Nullable(a) => Printf.sprintf("%s", string_of_arg_typ(a));
 
@@ -186,21 +186,6 @@ module Arg = {
     (variable_map, ~field_type=?, ~field_name, arglist, key_values, f) =>
       switch (arglist) {
       | [] => Ok(f)
-      /* | [ArgWithDefault(arg), ...arglist'] =>
-         let arglist'' = [
-           Arg({name: arg.name, description: arg.description, typ: arg.typ}),
-           ...arglist',
-         ];
-         eval_arglist(
-           variable_map,
-           ~field_type?,
-           ~field_name,
-           arglist'',
-           key_values,
-           fun
-           | Some(v) => f(v)
-           | None => arg.default
-         ); */
       | [Arg(arg), ...arglist'] =>
         try (
           {
@@ -229,6 +214,21 @@ module Arg = {
         ) {
         | StringMap.Missing_key(key) => Error(Format.sprintf("Missing variable `%s`", key))
         }
+      /* | [ArgWithDefault(arg), ...arglist'] =>
+        let arglist'' = [
+          Arg({name: arg.name, description: arg.description, typ: arg.typ}),
+          ...arglist',
+        ];
+        eval_arglist(
+          variable_map,
+          ~field_type?,
+          ~field_name,
+          arglist'',
+          key_values,
+          fun
+          | Some(v) => f(v)
+          | None => arg.default,
+        ); */
       }
 
   and eval_arg:
@@ -275,7 +275,7 @@ module Arg = {
       | (Nullable(_), None) => Ok(None)
       | (Nullable(_), Some(`Null)) => Ok(None)
       /* | (Nullable(typ), Some(value)) =>
-        eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ, Some(value)) */
+         eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ, Some(value)) */
       | (Enum(e), Some(value)) =>
         switch (value) {
         | `Enum(v)
