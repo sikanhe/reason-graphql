@@ -1,3 +1,14 @@
+module Result = {
+    include Belt.Result
+    let rec join = (~memo=[]) =>
+      fun
+      | [] => Ok(List.rev(memo))
+      | [Error(_) as err, ..._] => err
+      | [Ok(x), ...xs] => join(~memo=[x, ...memo], xs);
+
+    let all = (xs, f) => List.map(f, xs) |> join;
+  };
+
 module Option = {
   let map = (x, ~f) =>
     switch (x) {
@@ -32,10 +43,10 @@ let rec serializeValue: Ast.constValue => Js.Json.t =
   | `Int(int) => Js.Json.number(float_of_int(int))
   | `Boolean(bool) => Js.Json.boolean(bool)
   | `List(list) =>
-    list |> List.map(item => serializeValue(item)) |> Array.of_list |> Js.Json.array
+    list -> Belt.List.map(item => serializeValue(item)) |> Array.of_list |> Js.Json.array
   | `Map(assocList) => {
       let dict = Js.Dict.empty();
-      assocList |> List.iter(((name, value)) => Js.Dict.set(dict, name, serializeValue(value)));
+      assocList -> Belt.List.forEach(((name, value)) => Js.Dict.set(dict, name, serializeValue(value)));
       Js.Json.object_(dict);
     }
   | `Null => Js.Json.null;
@@ -106,7 +117,7 @@ module Arg = {
       | `Boolean(_) as b => b
       | `Enum(_) as e => e
       | `Variable(v) => StringMap.find_exn(v, variable_map)
-      | `List(xs) => `List(List.map(value_to_const_value(variable_map), xs))
+      | `List(xs) => `List(Belt.List.map(xs, value_to_const_value(variable_map)))
       | `Map(props) => {
           let props' =
             List.map(
@@ -116,9 +127,9 @@ module Arg = {
           `Map(props');
         };
 
-  let (>>=) = (result: Belt.Result.t('a, 'b), f) => {
+  let (>>=) = (result, f) => {
     switch (result) {
-    | Ok(v) => f(v)
+    | Belt.Result.Ok(v) => f(v)
     | Error(_) as e => e
     };
   };
@@ -258,20 +269,18 @@ module Arg = {
 
         | _ => Error(eval_arg_error(~field_type?, ~field_name, ~arg_name, typ, Some(value)))
         }
-      /* | (List(typ), Some(value)) =>
+      | (List(typ), Some(value)) =>
          switch (value) {
          | `List(values) =>
-           values |> List.map(eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ))
-           let option_values = List.map(x => Some(x), values);
-           Belt.Result.(
+           let option_values = Belt.List.map(values, x => Some(x));
+           Result.all(
              option_values,
              eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ),
            )
-           >>| (coerced => Some(coerced));
          | value =>
            eval_arg(variable_map, ~field_type?, ~field_name, ~arg_name, typ, Some(value))
-           >>| ((coerced) => (Some([coerced]): a))
-         } */
+           >>| ((coerced) => ([coerced]: a))
+         }
       | (Nullable(_), None) => Ok(None)
       | (Nullable(_), Some(`Null)) => Ok(None)
       /* | (Nullable(typ), Some(value)) =>
@@ -347,6 +356,8 @@ module Arg = {
         | _ => failwith("Not a boolean")
         },
     });
+
+  let list = (a) => List(a);
 };
 
 type typ(_) =
@@ -428,3 +439,4 @@ let string = Scalar({name: "String", description: None, serialize: str => `Strin
 let int = Scalar({name: "Int", description: None, serialize: int => `Int(int)});
 let float = Scalar({name: "Float", description: None, serialize: float => `Float(float)});
 let boolean = Scalar({name: "Boolean", description: None, serialize: bool => `Boolean(bool)});
+let list = (a) => List(a);

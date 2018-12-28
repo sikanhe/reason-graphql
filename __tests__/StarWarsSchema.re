@@ -18,10 +18,10 @@ let humanType =
       [
         field("id", string, ~args=[], (human: StarWars.human) => human.id),
         field("name", string, ~args=[], (human: StarWars.human) => human.StarWars.name),
-        field("appearsIn", ~args=[], List(episodeEnum.fieldType), (human: StarWars.human) =>
+        field("appearsIn", ~args=[], list(episodeEnum.fieldType), (human: StarWars.human) =>
           human.StarWars.appearsIn
         ),
-        field("friends", ~args=[], List(humanType), (human: StarWars.human) =>
+        field("friends", ~args=[], list(humanType), (human: StarWars.human) =>
           StarWars.getFriends(human.StarWars.friends)
         ),
       ]
@@ -33,6 +33,9 @@ let queryType =
     rootQuery([
       field("hero", humanType, ~args=Arg.[arg("id", int)], ((), id) =>
         StarWars.getHero(string_of_int(id))
+      ),
+      field("heroes", list(humanType), ~args=Arg.[arg("ids", list(int))], ((), ids) =>
+        ids |> List.map(string_of_int) |> StarWars.getFriends
       ),
     ])
   );
