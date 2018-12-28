@@ -16,12 +16,18 @@ let humanType =
   Schema.(
     obj("Human", ~fields=humanType =>
       [
-        field("id", string, ~args=[], (human: StarWars.human) => human.id),
-        field("name", string, ~args=[], (human: StarWars.human) => human.StarWars.name),
-        field("appearsIn", ~args=[], list(episodeEnum.fieldType), (human: StarWars.human) =>
+        field("id", ~typ=string, ~args=[], ~resolve=(human: StarWars.human) => human.id),
+        field("name", ~typ=string, ~args=[], ~resolve=(human: StarWars.human) =>
+          human.StarWars.name
+        ),
+        field(
+          "appearsIn",
+          ~typ=list(episodeEnum.fieldType),
+          ~args=[],
+          ~resolve=(human: StarWars.human) =>
           human.StarWars.appearsIn
         ),
-        field("friends", ~args=[], list(humanType), (human: StarWars.human) =>
+        field("friends", ~typ=list(humanType), ~args=[], ~resolve=(human: StarWars.human) =>
           StarWars.getFriends(human.StarWars.friends)
         ),
       ]
@@ -31,11 +37,19 @@ let humanType =
 let queryType =
   Schema.(
     rootQuery([
-      field("hero", humanType, ~args=Arg.[arg("id", int)], ((), id) =>
+      field("hero", ~typ=humanType, ~args=Arg.[arg("id", int)], ~resolve=(_, id) =>
         StarWars.getHero(string_of_int(id))
       ),
-      field("heroes", list(humanType), ~args=Arg.[arg("ids", list(int))], ((), ids) =>
+      field(
+        "heroes", ~typ=list(humanType), ~args=Arg.[arg("ids", list(int))], ~resolve=(_, ids) =>
         ids |> List.map(string_of_int) |> StarWars.getFriends
+      ),
+      field(
+        "testDefault",
+        ~typ=int,
+        ~args=Arg.[defaultArg("number", nullable(int), ~default=5)],
+        ~resolve=(_, n) =>
+        n
       ),
     ])
   );
