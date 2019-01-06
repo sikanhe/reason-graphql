@@ -1,5 +1,11 @@
 module Result = {
   include Belt.Result;
+
+  module Operators = {
+    let (>>=) = Belt.Result.flatMap;
+    let (>>|) = Belt.Result.map;
+  };
+
   let rec join = (~memo=[]) =>
     fun
     | [] => Ok(List.rev(memo))
@@ -12,24 +18,19 @@ module Result = {
 module StringMap = {
   include Map.Make(String);
   exception MissingKey(string);
-  let find_exn = (key, t) =>
+
+  let findExn = (key, t) =>
     try (find(key, t)) {
     | Not_found => raise(MissingKey(key))
     };
+    
   let find = (k, t) =>
-    try (Some(find_exn(k, t))) {
+    try (Some(findExn(k, t))) {
     | MissingKey(_) => None
     };
 };
 
-let (>>=) = (result, f) => {
-  switch (result) {
-  | Belt.Result.Ok(v) => f(v)
-  | Error(_) as e => e
-  };
-};
-
-let (>>|) = (x, f) => Belt.Result.map(x, f);
+open Result.Operators;
 
 type variables = StringMap.t(Ast.value);
 type fragments = StringMap.t(Ast.fragmentDefinition);
@@ -59,7 +60,7 @@ module Arg = {
       | `String(_) as s => s
       | `Boolean(_) as b => b
       | `Enum(_) as e => e
-      | `Variable(v) => StringMap.find_exn(v, variableMap)
+      | `Variable(v) => StringMap.findExn(v, variableMap)
       | `List(xs) => `List(Belt.List.map(xs, valueToConstValue(variableMap)))
       | `Map(props) => {
           let props' =
