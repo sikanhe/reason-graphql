@@ -11,14 +11,14 @@ module Result = {
 
 module StringMap = {
   include Map.Make(String);
-  exception Missing_key(string);
+  exception MissingKey(string);
   let find_exn = (key, t) =>
     try (find(key, t)) {
-    | Not_found => raise(Missing_key(key))
+    | Not_found => raise(MissingKey(key))
     };
   let find = (k, t) =>
     try (Some(find_exn(k, t))) {
-    | Missing_key(_) => None
+    | MissingKey(_) => None
     };
 };
 
@@ -119,6 +119,7 @@ module Arg = {
     );
   };
 
+
   let rec evalArgList:
     type a b.
       (
@@ -168,7 +169,7 @@ module Arg = {
             );
           }
         ) {
-        | StringMap.Missing_key(key) => Error(Format.sprintf("Missing variable `%s`", key))
+        | StringMap.MissingKey(key) => Error(Format.sprintf("Missing variable `%s`", key))
         }
       }
 
@@ -217,11 +218,11 @@ module Arg = {
           evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ, Some(value))
           >>| ((coerced) => ([coerced]: a))
         }
-      | (Enum(e), Some(value)) =>
+      | (Enum(enum), Some(value)) =>
         switch (value) {
         | `Enum(v)
         | `String(v) =>
-          switch (Belt.List.getBy(e.values, enum_value => enum_value.name == v)) {
+          switch (Belt.List.getBy(enum.values, enum_value => enum_value.name == v)) {
           | Some(enum_value) => Ok(enum_value.value)
           | None =>
             Error(
@@ -365,7 +366,7 @@ let execute =
   `Map([("data", data)]);
 };
 
-let rec serializeValue: Ast.constValue => Js.Json.t =
+let rec resultToJson: Ast.constValue => Js.Json.t =
   fun
   | `String(string)
   | `Enum(string) => Js.Json.string(string)
@@ -373,11 +374,11 @@ let rec serializeValue: Ast.constValue => Js.Json.t =
   | `Int(int) => Js.Json.number(float_of_int(int))
   | `Boolean(bool) => Js.Json.boolean(bool)
   | `List(list) =>
-    list |> Belt.List.map(_, item => serializeValue(item)) |> Array.of_list |> Js.Json.array
+    list |> Belt.List.map(_, item => resultToJson(item)) |> Array.of_list |> Js.Json.array
   | `Map(assocList) => {
       let dict = Js.Dict.empty();
       Belt.List.forEach(assocList, ((name, value)) =>
-        Js.Dict.set(dict, name, serializeValue(value))
+        Js.Dict.set(dict, name, resultToJson(value))
       );
       Js.Json.object_(dict);
     }
