@@ -102,8 +102,8 @@ module Arg = {
     | Nullable(List(a)) => Printf.sprintf("[%s]", stringOfArgType(a))
     | Nullable(Nullable(_)) => "";
 
-  let evalArgError = (~fieldType="field", ~fieldName, ~arg_name, arg_typ, value) => {
-    let found_str =
+  let evalArgError = (~fieldType="field", ~fieldName, ~argName, argType, value) => {
+    let foundStr =
       switch (value) {
       | Some(v) => Printf.sprintf("found %s", stringOfConstValue(v))
       | None => "but not provided"
@@ -111,14 +111,13 @@ module Arg = {
 
     Printf.sprintf(
       "Argument `%s` of type `%s` expected on %s `%s`, %s.",
-      arg_name,
-      stringOfArgType(arg_typ),
+      argName,
+      stringOfArgType(argType),
       fieldType,
       fieldName,
-      found_str,
+      foundStr,
     );
   };
-
 
   let rec evalArgList:
     type a b.
@@ -155,7 +154,7 @@ module Arg = {
           {
             let value = Belt.List.getAssoc(key_values, arg.name, (==));
             let constValue = Belt.Option.map(value, valueToConstValue(variableMap));
-            evalArg(variableMap, ~fieldType?, ~fieldName, ~arg_name=arg.name, arg.typ, constValue)
+            evalArg(variableMap, ~fieldType?, ~fieldName, ~argName=arg.name, arg.typ, constValue)
             >>= (
               coerced =>
                 evalArgList(
@@ -179,24 +178,24 @@ module Arg = {
         variableMap,
         ~fieldType: string=?,
         ~fieldName: string,
-        ~arg_name: string,
+        ~argName: string,
         argType(a),
         option(Ast.constValue)
       ) =>
       Belt.Result.t(a, string) =
-    (variableMap, ~fieldType=?, ~fieldName, ~arg_name, typ, value) =>
+    (variableMap, ~fieldType=?, ~fieldName, ~argName, typ, value) =>
       switch (typ, value) {
       | (Nullable(_), None) => Ok(None)
       | (Nullable(_), Some(`Null)) => Ok(None)
-      | (_, None) => Error(evalArgError(~fieldType?, ~fieldName, ~arg_name, typ, value))
-      | (_, Some(`Null)) => Error(evalArgError(~fieldType?, ~fieldName, ~arg_name, typ, value))
+      | (_, None) => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, value))
+      | (_, Some(`Null)) => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, value))
       | (Nullable(typ), Some(value)) =>
-        evalArg(variableMap, ~fieldType?, ~fieldName, ~arg_name, typ, Some(value))
+        evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ, Some(value))
         >>| (value => Some(value))
       | (Scalar(s), Some(value)) =>
         switch (s.parse(value)) {
         | Ok(coerced) => Ok(coerced)
-        | Error(_) => Error(evalArgError(~fieldType?, ~fieldName, ~arg_name, typ, Some(value)))
+        | Error(_) => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, Some(value)))
         }
       | (InputObject(o), Some(value)) =>
         switch (value) {
@@ -204,7 +203,7 @@ module Arg = {
           let props' = (props :> list((string, Ast.value)));
           evalArgList(variableMap, ~fieldType?, ~fieldName, o.fields, props', o.coerce);
 
-        | _ => Error(evalArgError(~fieldType?, ~fieldName, ~arg_name, typ, Some(value)))
+        | _ => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, Some(value)))
         }
       | (List(typ), Some(value)) =>
         switch (value) {
@@ -212,10 +211,10 @@ module Arg = {
           let option_values = Belt.List.map(values, x => Some(x));
           Result.all(
             option_values,
-            evalArg(variableMap, ~fieldType?, ~fieldName, ~arg_name, typ),
+            evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ),
           );
         | value =>
-          evalArg(variableMap, ~fieldType?, ~fieldName, ~arg_name, typ, Some(value))
+          evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ, Some(value))
           >>| ((coerced) => ([coerced]: a))
         }
       | (Enum(e), Some(value)) =>
@@ -228,14 +227,14 @@ module Arg = {
             Error(
               Printf.sprintf(
                 "Invalid enum value for argument `%s` on field `%s`",
-                arg_name,
+                argName,
                 fieldName,
               ),
             )
           }
         | _ =>
           Error(
-            Printf.sprintf("Expected enum for argument `%s` on field `%s`", arg_name, fieldName),
+            Printf.sprintf("Expected enum for argument `%s` on field `%s`", argName, fieldName),
           )
         }
       };
