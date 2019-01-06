@@ -52,13 +52,9 @@ and selection =
 and field = {
   alias: option(string),
   name: string,
-  arguments: list(argument),
+  arguments: list((string, value)),
   selectionSet: list(selection),
   directives: list(directive),
-}
-and argument = {
-  name: string,
-  value,
 }
 /* Fragments */
 and fragmentDefinition = {
@@ -79,7 +75,7 @@ and fragmentSpread = {
 /* Directives */
 and directive = {
   name: string,
-  arguments: list(argument),
+  arguments: list((string, value)),
 }
 /* Type Reference */
 and typeReference =

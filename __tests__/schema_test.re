@@ -5,7 +5,7 @@ describe("Parse and print a graphql query", () => {
 
   let query = {|
     {
-      hero {
+      heroes(ids: [1000, 1002]) {
         id
         name
         appearsIn
@@ -24,14 +24,24 @@ describe("Parse and print a graphql query", () => {
           "data",
           `Map([
             (
-              "hero",
-              `Map([
-                ("id", `String("1000")),
-                ("name", `String("Luke Skywalker")),
-                (
-                  "appearsIn",
-                  `List([`String("NEWHOPE"), `String("JEDI"), `String("EMPIRE")]),
-                ),
+              "heroes",
+              `List([
+                `Map([
+                  ("id", `String("1000")),
+                  ("name", `String("Luke Skywalker")),
+                  (
+                    "appearsIn",
+                    `List([`String("NEWHOPE"), `String("JEDI"), `String("EMPIRE")]),
+                  ),
+                ]),
+                `Map([
+                  ("id", `String("1002")),
+                  ("name", `String("Han Solo")),
+                  (
+                    "appearsIn",
+                    `List([`String("NEWHOPE"), `String("JEDI"), `String("EMPIRE")]),
+                  ),
+                ]),
               ]),
             ),
           ]),

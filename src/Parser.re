@@ -32,7 +32,7 @@ let skip = (lexer: Lexer.t, kind: Lexer.tokenKind): bool =>
 let skipKeyword = (lexer: Lexer.t, value: string): bool =>
   switch (lexer.token) {
   | {kind, value: v} when kind == NAME && v == value =>
-    lexer->Lexer.advance;
+    lexer |> Lexer.advance;
     true;
   | _ => false
   };
@@ -165,6 +165,7 @@ let rec parseValueLiteral = ({token} as lexer: Lexer.t, ~isConst: bool) =>
   | DOLLAR when !isConst => parseVariable(lexer)
   | _ => unexpected(lexer)
   }
+
 /**
  * ListValue[Const] :
  *   - [ ]
@@ -174,24 +175,26 @@ and parseList = (lexer: Lexer.t, ~isConst: bool) => {
   let parseFn = parseValueLiteral(~isConst);
   `List(any(lexer, BRACKET_L, parseFn, BRACKET_R));
 }
+
 /**
  * ObjectValue[Const] :
  *   - { }
  *   - { ObjectField[?Const]+ }
  */
 and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
-  expect(lexer, BRACE_L)->ignore;
+  expect(lexer, BRACE_L);
 
-  let rec makeFields = fields => 
+  let rec makeFields = fields =>
     if (!skip(lexer, BRACE_R)) {
       let field = parseObjectField(lexer, ~isConst);
-      makeFields([field, ...fields])
+      makeFields([field, ...fields]);
     } else {
-      fields
+      fields;
     };
 
   `Map(makeFields([]));
 }
+
 /**
  * ObjectField[Const] : Name : Value[?Const]
  */
@@ -215,16 +218,16 @@ let rec parseTypeReference = (lexer: Lexer.t) => {
   skip(lexer, BANG) ? NonNullType(typ) : typ;
 };
 
-let parseArgument = (lexer: Lexer.t): argument => {
+let parseArgument = (lexer: Lexer.t): (string, Ast.value) => {
   let name = parseName(lexer);
   expect(lexer, COLON);
-  {name, value: parseValueLiteral(lexer, ~isConst=false)};
+  (name, parseValueLiteral(lexer, ~isConst=false));
 };
 
-let parseConstArgument = (lexer: Lexer.t): argument => {
+let parseConstArgument = (lexer: Lexer.t): (string, Ast.value) => {
   let name = parseName(lexer);
   expect(lexer, COLON);
-  {name, value: parseValueLiteral(lexer, ~isConst=true)};
+  (name, parseValueLiteral(lexer, ~isConst=true));
 };
 
 let parseArguments = (lexer: Lexer.t, ~isConst: bool) =>

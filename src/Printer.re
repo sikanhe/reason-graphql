@@ -40,8 +40,8 @@ let printVariableDef = ({variable, typ}: variableDefinition) =>
   printValue(variable) ++ ": " ++ printType(typ);
 let printVariables = vars => vars->List.map(printVariableDef)->join(", ");
 
-let printArgument = ({name, value}: argument) => name ++ ": " ++ printValue(value);
-let printArguments = (args: list(argument)) => args->List.map(printArgument)->join(", ");
+let printArgument = ((name, value)) => name ++ ": " ++ printValue(value);
+let printArguments = (args: list((string, Ast.value))) => args->List.map(printArgument)->join(", ");
 
 let printDirective = ({name, arguments}: directive) =>
   "@" ++ name ++ wrap("(", printArguments(arguments), ")");

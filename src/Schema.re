@@ -3,47 +3,123 @@ type deprecation =
   | Deprecated
   | DeprecatedWithReason(string);
 
-let rec serializeValue: Ast.constValue => Js.Json.t =
-  fun
-  | `String(string) | `Enum(string) => Js.Json.string(string)
-  | `Float(float) => Js.Json.number(float)
-  | `Int(int) => Js.Json.number(float_of_int(int))
-  | `Boolean(bool) => Js.Json.boolean(bool)
-  | `List(list) =>
-    list |> List.map(item => serializeValue(item)) |> Array.of_list |> Js.Json.array
-  | `Map(assocList) => {
-      let dict = Js.Dict.empty();
-      assocList |> List.iter(((name, value)) => Js.Dict.set(dict, name, serializeValue(value)));
-      Js.Json.object_(dict);
-    }
-  | `Null => Js.Json.null;
-
-type scalar('src) = {
-  name: string,
-  description: option(string),
-  parse: Ast.constValue => 'src,
-  serialize: 'src => Ast.constValue,
-};
-
-type enum('a) = {
-  name: string,
-  description: option(string),
-  values: list(enumValue('a)),
-}
-and enumValue('a) = {
+type enumValue('a) = {
   name: string,
   description: option(string),
   deprecated: deprecation,
   value: 'a,
 };
 
-type typ('src) =
+type enum('a) = {
+  name: string,
+  description: option(string),
+  values: list(enumValue('a)),
+};
+
+module Arg = {
+  type arg(_) =
+    | Arg(argument('a)): arg('a)
+    | DefaultArg(argumentWithDefault('a)): arg('a)
+  and argument('a) = {
+    name: string,
+    description: option(string),
+    typ: argType('a),
+  }
+  and argumentWithDefault('a) = {
+    name: string,
+    description: option(string),
+    typ: argType(option('a)),
+    default: 'a,
+  }
+  and argType(_) =
+    | Scalar(scalar('a)): argType('a)
+    | Enum(enum('a)): argType('a)
+    | InputObject(inputObject('a, 'b)): argType('a)
+    | Nullable(argType('a)): argType(option('a))
+    | List(argType('a)): argType(list('a))
+  and scalar('a) = {
+    name: string,
+    description: option(string),
+    parse: Ast.constValue => Belt.Result.t('a, string),
+  }
+  and inputObject('a, 'b) = {
+    name: string,
+    description: option(string),
+    fields: arglist('a, 'b),
+    coerce: 'b,
+  }
+  and arglist(_, _) =
+    | []: arglist('a, 'a)
+    | ::(arg('a), arglist('b, 'c)): arglist('b, 'a => 'c);
+
+  let arg = (~description=?, name, typ) => Arg({name, typ, description});
+
+  let defaultArg = (~description=?, ~default, name, typ) =>
+    DefaultArg({name, typ, description, default});
+
+  /* Built in scalars */
+
+  let string =
+    Scalar({
+      name: "String",
+      description: None,
+
+      parse: input =>
+        switch (input) {
+        | `String(str) => Ok(str)
+        | _ => failwith("Not a string")
+        },
+    });
+
+  let int =
+    Scalar({
+      name: "Int",
+      description: None,
+      parse: input =>
+        switch (input) {
+        | `Int(int) => Ok(int)
+        | _ => failwith("Not an integer")
+        },
+    });
+
+  let float =
+    Scalar({
+      name: "Float",
+      description: None,
+      parse: input =>
+        switch (input) {
+        | `Float(float) => Ok(float)
+        | _ => failwith("Not a float")
+        },
+    });
+
+  let boolean =
+    Scalar({
+      name: "Boolean",
+      description: None,
+      parse: input =>
+        switch (input) {
+        | `Boolean(bool) => Ok(bool)
+        | _ => failwith("Not a boolean")
+        },
+    });
+
+  let list = a => List(a);
+  let nullable = a => Nullable(a);
+};
+
+type typ(_) =
   | Scalar(scalar('src)): typ('src)
   | Enum(enum('src)): typ('src)
   | List(typ('src)): typ(list('src))
   | Object(obj('src)): typ('src)
   | Interface(interface('src)): typ('src)
   | Nullable(typ('src)): typ(option('src))
+and scalar('src) = {
+  name: string,
+  description: option(string),
+  serialize: 'src => Ast.constValue,
+}
 and obj('src) = {
   name: string,
   description: option(string),
@@ -56,13 +132,15 @@ and interface('src) = {
   fields: Lazy.t(list(field('src))),
 }
 and field('src) =
-  | Field(fieldDefinition('src, 'out)): field('src)
-and fieldDefinition('src, 'out) = {
+  | Field(fieldDefinition('src, 'out, 'a, 'args)): field('src)
+and fieldDefinition('src, 'out, 'a, 'args) = {
   name: string,
-  typ: typ('out),
-  resolve: 'src => 'out,
   description: option(string),
   deprecated: deprecation,
+  typ: typ('out),
+  arguments: Arg.arglist('a, 'args),
+  resolve: 'src => 'args,
+  lift: 'a => 'out,
 };
 
 type t = {
@@ -70,28 +148,29 @@ type t = {
   /* mutation: obj(unit), */
 };
 
-let create = (~query) => {query: query}; 
+let create = (~query) => {query: query};
 
-let field = (~description=?, ~deprecated=NotDeprecated, name, typ, resolve) =>
-  Field({name, typ, resolve, deprecated, description});
+let field = (~description=?, ~args, ~deprecated=NotDeprecated, ~typ, ~resolve, name) =>
+  Field({name, typ, resolve, deprecated, description, arguments: args, lift: a => a});
 
-let scalar = (~description=?, ~parse, ~serialize, name) =>
-  Scalar({name, description, parse, serialize});
+type combinedEnum('a) = {
+  argType: Arg.argType('a),
+  fieldType: typ('a),
+};
 
-let enum = (~description=?, ~values, name) => Enum({
-  name,
-  description,
-  values
-});
+let makeEnum = (name, ~description=?, values) => {
+  argType: Arg.Enum({name, description, values}),
+  fieldType: Enum({name, description, values}),
+};
 
 let enumValue = (~description=?, ~deprecated=NotDeprecated, ~value, name) => {
   name,
   description,
   deprecated,
-  value
+  value,
 };
 
-let obj = (~description=?, ~implements=[], ~fields, name) => {
+let obj = (~description=?, ~implements: list(interface('src))=[], ~fields, name) => {
   let rec self = Object({name, description, fields: lazy (fields(self)), implements});
   self;
 };
@@ -103,50 +182,10 @@ let rootQuery = (fields): obj(unit) => {
   implements: [],
 };
 
-let string =
-  Scalar({
-    name: "String",
-    description: None,
-    serialize: str => `String(str),
-    parse: input =>
-      switch (input) {
-      | `String(str) => str
-      | _ => failwith("Not a string")
-      },
-  });
-
-let int =
-  Scalar({
-    name: "Int",
-    description: None,
-    serialize: int => `Int(int),
-    parse: input =>
-      switch (input) {
-      | `Int(int) => int
-      | _ => failwith("Not an integer")
-      },
-  });
-
-let float =
-  Scalar({
-    name: "Float",
-    description: None,
-    serialize: float => `Float(float),
-    parse: input =>
-      switch (input) {
-      | `Float(float) => float
-      | _ => failwith("Not a float")
-      },
-  });
-
-let boolean =
-  Scalar({
-    name: "Boolean",
-    description: None,
-    serialize: bool => `Boolean(bool),
-    parse: input =>
-      switch (input) {
-      | `Boolean(bool) => bool
-      | _ => failwith("Not a boolean")
-      },
-  });
+/* Built in scalars */
+let string = Scalar({name: "String", description: None, serialize: str => `String(str)});
+let int = Scalar({name: "Int", description: None, serialize: int => `Int(int)});
+let float = Scalar({name: "Float", description: None, serialize: float => `Float(float)});
+let boolean = Scalar({name: "Boolean", description: None, serialize: bool => `Boolean(bool)});
+let list = a => List(a);
+let nullable = a => Nullable(a);
