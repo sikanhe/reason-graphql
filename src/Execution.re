@@ -247,19 +247,20 @@ let matchesTypeCondition = (typeCondition: string, obj: Schema.obj('src)) =>
 let rec collectFields: (fragments, Schema.obj('src), list(Ast.selection)) => list(Ast.field) =
   (fragments, obj, selectionSet) =>
     selectionSet
-    ->Belt.List.map(
-        fun
-        | Ast.Field(field) => [field]
-        | Ast.FragmentSpread(fragmentSpread) =>
-          switch (StringMap.find(fragmentSpread.name, fragments)) {
-          | Some({typeCondition, selectionSet}) when matchesTypeCondition(typeCondition, obj) =>
-            collectFields(fragments, obj, selectionSet)
-          | _ => []
-          }
-        | Ast.InlineFragment(inlineFragment) =>
-          collectFields(fragments, obj, inlineFragment.selectionSet),
-      )
-    ->List.flatten;
+    |> Belt.List.map(
+         _,
+         fun
+         | Ast.Field(field) => [field]
+         | Ast.FragmentSpread(fragmentSpread) =>
+           switch (StringMap.find(fragmentSpread.name, fragments)) {
+           | Some({typeCondition, selectionSet}) when matchesTypeCondition(typeCondition, obj) =>
+             collectFields(fragments, obj, selectionSet)
+           | _ => []
+           }
+         | Ast.InlineFragment(inlineFragment) =>
+           collectFields(fragments, obj, inlineFragment.selectionSet),
+       )
+    |> List.flatten;
 
 let fieldName: Ast.field => string =
   fun
@@ -267,7 +268,9 @@ let fieldName: Ast.field => string =
   | field => field.name;
 
 let getObjField = (fieldName: string, obj: Schema.obj('src)): option(Schema.field('src)) =>
-  obj.fields->Lazy.force->Belt.List.getBy((Schema.Field(field)) => field.name == fieldName);
+  obj.fields
+  |> Lazy.force
+  |> Belt.List.getBy(_, (Schema.Field(field)) => field.name == fieldName);
 
 
 let rec resolveValue:
@@ -358,7 +361,8 @@ let execute =
     (~variables=StringMap.empty, schema: Schema.t, ~document: Ast.document): Ast.constValue => {
   let operations = collectOperations(document);
   let fragments = collectFragments(document);
-  let data = operations->Belt.List.map(executeOperation(schema, fragments))->Belt.List.headExn;
+  let data =
+    operations |> Belt.List.map(_, executeOperation(schema, fragments)) |> Belt.List.headExn;
   `Map([("data", data)]);
 };
 
@@ -370,7 +374,7 @@ let rec serializeValue: Ast.constValue => Js.Json.t =
   | `Int(int) => Js.Json.number(float_of_int(int))
   | `Boolean(bool) => Js.Json.boolean(bool)
   | `List(list) =>
-    list->Belt.List.map(item => serializeValue(item)) |> Array.of_list |> Js.Json.array
+    list |> Belt.List.map(_, item => serializeValue(item)) |> Array.of_list |> Js.Json.array
   | `Map(assocList) => {
       let dict = Js.Dict.empty();
       Belt.List.forEach(assocList, ((name, value)) =>

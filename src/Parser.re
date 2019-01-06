@@ -32,7 +32,7 @@ let skip = (lexer: Lexer.t, kind: Lexer.tokenKind): bool =>
 let skipKeyword = (lexer: Lexer.t, value: string): bool =>
   switch (lexer.token) {
   | {kind, value: v} when kind == NAME && v == value =>
-    lexer->Lexer.advance;
+    lexer |> Lexer.advance;
     true;
   | _ => false
   };
@@ -165,6 +165,7 @@ let rec parseValueLiteral = ({token} as lexer: Lexer.t, ~isConst: bool) =>
   | DOLLAR when !isConst => parseVariable(lexer)
   | _ => unexpected(lexer)
   }
+
 /**
  * ListValue[Const] :
  *   - [ ]
@@ -174,13 +175,14 @@ and parseList = (lexer: Lexer.t, ~isConst: bool) => {
   let parseFn = parseValueLiteral(~isConst);
   `List(any(lexer, BRACKET_L, parseFn, BRACKET_R));
 }
+
 /**
  * ObjectValue[Const] :
  *   - { }
  *   - { ObjectField[?Const]+ }
  */
 and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
-  expect(lexer, BRACE_L)->ignore;
+  expect(lexer, BRACE_L);
 
   let rec makeFields = fields =>
     if (!skip(lexer, BRACE_R)) {
@@ -192,6 +194,7 @@ and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
 
   `Map(makeFields([]));
 }
+
 /**
  * ObjectField[Const] : Name : Value[?Const]
  */
