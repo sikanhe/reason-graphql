@@ -8,11 +8,11 @@ module Result = {
 
   let rec join = (~memo=[]) =>
     fun
-    | [] => Ok(List.rev(memo))
+    | [] => Ok(Belt.List.reverse(memo))
     | [Error(_) as err, ..._] => err
     | [Ok(x), ...xs] => join(~memo=[x, ...memo], xs);
 
-  let all = (xs, f) => List.map(f, xs) |> join;
+  let all = (list, f) => Belt.List.map(list, f) |> join;
 };
 
 module StringMap = {
@@ -79,12 +79,12 @@ module Arg = {
     | `Boolean(b) => string_of_bool(b)
     | `Enum(e) => e
     | `List(l) => {
-        let values = List.map(i => stringOfConstValue(i), l);
+        let values = Belt.List.map(l, i => stringOfConstValue(i));
         Printf.sprintf("[%s]", String.concat(", ", values));
       }
     | `Map(a) => {
         let values =
-          List.map(((k, v)) => Printf.sprintf("%s: %s", k, stringOfConstValue(v)), a);
+          Belt.List.map(a, ((k, v)) => Printf.sprintf("%s: %s", k, stringOfConstValue(v)));
 
         Printf.sprintf("{%s}", String.concat(", ", values));
       }:
@@ -119,6 +119,7 @@ module Arg = {
       foundStr,
     );
   };
+
 
   let rec evalArgList:
     type a b.
@@ -260,7 +261,7 @@ let rec collectFields: (fragments, Schema.obj('src), list(Ast.selection)) => lis
          | Ast.InlineFragment(inlineFragment) =>
            collectFields(fragments, obj, inlineFragment.selectionSet),
        )
-    |> List.flatten;
+    |> Belt.List.flatten;
 
 let fieldName: Ast.field => string =
   fun
