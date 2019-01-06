@@ -23,7 +23,7 @@ module StringMap = {
     try (find(key, t)) {
     | Not_found => raise(MissingKey(key))
     };
-    
+
   let find = (k, t) =>
     try (Some(findExn(k, t))) {
     | MissingKey(_) => None
@@ -119,7 +119,6 @@ module Arg = {
       foundStr,
     );
   };
-
 
   let rec evalArgList:
     type a b.
