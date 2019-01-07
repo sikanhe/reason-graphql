@@ -32,14 +32,14 @@ module StringMap = {
 
 open Result.Operators;
 
-type variables = StringMap.t(Language.Ast.value);
-type fragments = StringMap.t(Language.Ast.fragmentDefinition);
+type variableMap = StringMap.t(Language.Ast.constValue);
+type fragmentMap = StringMap.t(Language.Ast.fragmentDefinition);
 
 type executionContext = {
   schema: Schema.t,
   operation: Language.Ast.operationDefinition,
-  fragments,
-  variables,
+  fragmentMap,
+  variableMap,
 };
 
 exception ResolveError(string);
@@ -49,7 +49,6 @@ type executionErorr =
 
 module Arg = {
   open Schema.Arg;
-  type variableMap = StringMap.t(Language.Ast.constValue);
 
   let rec valueToConstValue: (variableMap, Language.Ast.value) => Language.Ast.constValue =
     variableMap =>
@@ -251,21 +250,21 @@ let matchesTypeCondition = (typeCondition: string, obj: Schema.obj('src)) =>
   typeCondition == obj.name;
 
 let rec collectFields:
-  (fragments, Schema.obj('src), list(Language.Ast.selection)) => list(Language.Ast.field) =
-  (fragments, obj, selectionSet) =>
+  (fragmentMap, Schema.obj('src), list(Language.Ast.selection)) => list(Language.Ast.field) =
+  (fragmentMap, obj, selectionSet) =>
     selectionSet
     |> Belt.List.map(
          _,
          fun
          | Language.Ast.Field(field) => [field]
          | Language.Ast.FragmentSpread(fragmentSpread) =>
-           switch (StringMap.find(fragmentSpread.name, fragments)) {
+           switch (StringMap.find(fragmentSpread.name, fragmentMap)) {
            | Some({typeCondition, selectionSet}) when matchesTypeCondition(typeCondition, obj) =>
-             collectFields(fragments, obj, selectionSet)
+             collectFields(fragmentMap, obj, selectionSet)
            | _ => []
            }
          | Language.Ast.InlineFragment(inlineFragment) =>
-           collectFields(fragments, obj, inlineFragment.selectionSet),
+           collectFields(fragmentMap, obj, inlineFragment.selectionSet),
        )
     |> Belt.List.flatten;
 
@@ -292,7 +291,7 @@ let rec resolveValue:
       | None => `Null
       }
     | Schema.Object(obj) =>
-      let fields = collectFields(executionContext.fragments, obj, field.selectionSet);
+      let fields = collectFields(executionContext.fragmentMap, obj, field.selectionSet);
       `Map(resolveFields(executionContext, src, obj, fields));
     | Schema.List(typ') =>
       `List(Belt.List.map(src, srcItem => resolveValue(executionContext, srcItem, field, typ')))
@@ -336,14 +335,14 @@ and resolveFields:
     );
 
 let executeOperation =
-    (schema: Schema.t, fragments: fragments, operation: Language.Ast.operationDefinition)
+    (schema: Schema.t, fragmentMap: fragmentMap, operation: Language.Ast.operationDefinition)
     : Language.Ast.constValue =>
   switch (operation.operationType) {
   | Query =>
-    let fields = collectFields(fragments, schema.query, operation.selectionSet);
+    let fields = collectFields(fragmentMap, schema.query, operation.selectionSet);
     `Map(
       resolveFields(
-        {schema, fragments, operation, variables: StringMap.empty},
+        {schema, fragmentMap, operation, variableMap: StringMap.empty},
         (),
         schema.query,
         fields,
