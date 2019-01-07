@@ -20,40 +20,34 @@ module Arg = {
   type arg(_) =
     | Arg(argument('a)): arg('a)
     | DefaultArg(argumentWithDefault('a)): arg('a)
-
-  and argument('a) = {
-    name: string,
-    description: option(string),
-    typ: argType('a),
-  }
-
-  and argumentWithDefault('a) = {
-    name: string,
-    description: option(string),
-    typ: argType(option('a)),
-    default: 'a,
-  }
-
   and argType(_) =
     | Scalar(scalar('a)): argType('a)
     | Enum(enum('a)): argType('a)
     | InputObject(inputObject('a, 'b)): argType('a)
     | Nullable(argType('a)): argType(option('a))
     | List(argType('a)): argType(list('a))
-
   and scalar('a) = {
     name: string,
     description: option(string),
     parse: Language.Ast.constValue => Belt.Result.t('a, string),
   }
-
   and inputObject('a, 'b) = {
     name: string,
     description: option(string),
     fields: arglist('a, 'b),
     coerce: 'b,
   }
-
+  and argument('a) = {
+    name: string,
+    description: option(string),
+    typ: argType('a),
+  }
+  and argumentWithDefault('a) = {
+    name: string,
+    description: option(string),
+    typ: argType(option('a)),
+    default: 'a,
+  }
   and arglist(_, _) =
     | []: arglist('a, 'a)
     | ::(arg('a), arglist('b, 'c)): arglist('b, 'a => 'c);
@@ -114,59 +108,59 @@ module Arg = {
   let nullable = a => Nullable(a);
 };
 
-type typ(_) =
-  | Scalar(scalar('src)): typ('src)
-  | Enum(enum('src)): typ('src)
-  | List(typ('src)): typ(list('src))
-  | Object(obj('src)): typ('src)
-  | Interface(interface('src)): typ('src)
-  | Nullable(typ('src)): typ(option('src))
-
+type typ(_, _) =
+  | Scalar(scalar('src)): typ('ctx, 'src)
+  | Enum(enum('src)): typ('ctx, 'src)
+  | List(typ('ctx, 'src)): typ('ctx, list('src))
+  | Object(obj('ctx, 'src)): typ('ctx, 'src)
+  | Abstract(abstract): typ('ctx, abstractValue('ctx, 'a))
+  | Nullable(typ('ctx, 'src)): typ('ctx, option('src))
 and scalar('src) = {
   name: string,
   description: option(string),
   serialize: 'src => Language.Ast.constValue,
 }
-
-and obj('src) = {
+and obj('ctx, 'src) = {
   name: string,
   description: option(string),
-  fields: Lazy.t(list(field('src))),
-  implements: list(interface('src)),
+  fields: Lazy.t(list(field('ctx, 'src))),
+  abstracts: ref(list(abstract)),
 }
-
-and interface('src) = {
-  name: string,
-  description: option(string),
-  fields: Lazy.t(list(field('src))),
-}
-
-and field('src) =
-  | Field(fieldDefinition('src, 'out, 'a, 'args)): field('src)
-
-and fieldDefinition('src, 'out, 'a, 'args) = {
+and field(_, _) =
+  | Field(fieldDefinition('src, 'out, 'ctx, 'a, 'args)): field('ctx, 'src)
+and fieldDefinition('src, 'out, 'ctx, 'a, 'args) = {
   name: string,
   description: option(string),
   deprecated: deprecation,
-  typ: typ('out),
-  arguments: Arg.arglist('a, 'args),
-  resolve: 'src => 'args,
+  typ: typ('ctx, 'out),
+  args: Arg.arglist('a, 'args),
+  resolve: ('ctx, 'src) => 'args,
   lift: 'a => 'out,
-};
+}
+and anyType =
+  | AnyType(typ(_, _)): anyType
+  | AnyArgType(Arg.argType(_)): anyType
+and abstract = {
+  name: string,
+  description: option(string),
+  mutable types: list(anyType),
+  kind: [ | `Union | `Interface(Lazy.t(list(abstractField)))],
+}
+and abstractField =
+  | AbstractField(field(_, _)): abstractField
+and abstractValue('ctx, 'a) =
+  | AbstractValue((typ('ctx, 'src), 'src)): abstractValue('ctx, 'a);
 
-type t = {
-  query: obj(unit),
+type abstractType('ctx, 'a) = typ('ctx, abstractValue('ctx, 'a));
+
+type t('ctx) = {
+  query: obj('ctx, unit),
   /* mutation: obj(unit), */
 };
 
-let create = (~query) => {query: query};
-
-let field = (~description=?, ~args, ~deprecated=NotDeprecated, ~typ, ~resolve, name) =>
-  Field({name, typ, resolve, deprecated, description, arguments: args, lift: a => a});
-
-type combinedEnum('a) = {
+type combinedEnum('ctx, 'a) = {
   argType: Arg.argType('a),
-  fieldType: typ('a),
+  fieldType: typ('ctx, 'a),
 };
 
 let makeEnum = (name, ~description=?, values) => {
@@ -181,17 +175,44 @@ let enumValue = (~description=?, ~deprecated=NotDeprecated, ~value, name) => {
   value,
 };
 
-let obj = (~description=?, ~implements: list(interface('src))=[], ~fields, name) => {
-  let rec self = Object({name, description, fields: lazy (fields(self)), implements});
+let obj = (~description=?, ~implements: ref(list(abstract))=ref([]), ~fields, name) => {
+  let rec self = Object({name, description, fields: lazy (fields(self)), abstracts: implements});
   self;
 };
 
-let rootQuery = (fields): obj(unit) => {
-  name: "RootQueryType",
+let field = (~description=?, ~args, ~deprecated=NotDeprecated, ~typ, ~resolve, name) =>
+  Field({name, typ, resolve, deprecated, description, args, lift: a => a});
+
+let abstractField = (~description=?, ~deprecated=NotDeprecated, name, ~typ, ~args) =>
+  AbstractField(
+    Field({lift: a => a, name, description, deprecated, typ, args, resolve: Obj.magic()}),
+  );
+
+let union = (~description=?, name) => Abstract({name, description, types: [], kind: `Union});
+
+let interface = (~description=?, ~fields, name) => {
+  let rec t = Abstract({name, description, types: [], kind: `Interface(lazy (fields(t)))});
+  t;
+};
+
+let addType = (abstractType, typ) => {
+  switch (abstractType, typ) {
+  | (Abstract(a), Object(o)) =>
+    a.types = [AnyType(typ), ...a.types];
+    o.abstracts := [a, ...o.abstracts^];
+    (src => AbstractValue((typ, src)));
+  | _ => invalid_arg("Arguments must be Interface/Union and Object")
+  };
+};
+
+let rootQuery = (fields): obj('ctx, unit) => {
+  name: "Query",
   description: None,
   fields: lazy fields,
-  implements: [],
+  abstracts: ref([]),
 };
+
+let create = (~query) => {query: query};
 
 /* Built in scalars */
 let string = Scalar({name: "String", description: None, serialize: str => `String(str)});

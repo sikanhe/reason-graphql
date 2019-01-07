@@ -30,26 +30,28 @@ module StringMap = {
     };
 };
 
-open Result.Operators;
+type variableList = list((string, Language.Ast.constValue));
+type variableMap = StringMap.t(Language.Ast.constValue);
+type fragmentMap = StringMap.t(Language.Ast.fragmentDefinition);
 
-type variables = StringMap.t(Language.Ast.value);
-type fragments = StringMap.t(Language.Ast.fragmentDefinition);
-
-type executionContext = {
-  schema: Schema.t,
+type executionContext('ctx) = {
+  schema: Schema.t('ctx),
   operation: Language.Ast.operationDefinition,
-  fragments,
-  variables,
+  fragmentMap,
+  variableMap,
+  ctx: 'ctx,
 };
 
 exception ResolveError(string);
 
 type executionErorr =
   | OperationNotFound;
+type executionResult = {data: Language.Ast.constValue};
+
+open Result.Operators;
 
 module Arg = {
   open Schema.Arg;
-  type variableMap = StringMap.t(Language.Ast.constValue);
 
   let rec valueToConstValue: (variableMap, Language.Ast.value) => Language.Ast.constValue =
     variableMap =>
@@ -201,10 +203,15 @@ module Arg = {
         }
       | (InputObject(o), Some(value)) =>
         switch (value) {
-        | `Map(props) =>
-          let props' = (props :> list((string, Language.Ast.value)));
-          evalArgList(variableMap, ~fieldType?, ~fieldName, o.fields, props', o.coerce);
-
+        | `Map((props: list((string, Language.Ast.constValue)))) =>
+          evalArgList(
+            variableMap,
+            ~fieldType?,
+            ~fieldName,
+            o.fields,
+            (props :> list((string, Language.Ast.value))),
+            o.coerce,
+          )
         | _ => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, Some(value)))
         }
       | (List(typ), Some(value)) =>
@@ -242,24 +249,27 @@ module Arg = {
       };
 };
 
-let matchesTypeCondition = (typeCondition: string, obj: Schema.obj('src)) =>
-  typeCondition == obj.name;
+let matchesTypeCondition = (typeCondition: string, obj: Schema.obj('ctx, 'src)) =>
+  typeCondition == obj.name
+  || Belt.List.some(obj.abstracts^, abstract => abstract.name == typeCondition);
 
-let rec collectFields: (fragments, Schema.obj('src), list(Language.Ast.selection)) => list(Language.Ast.field) =
-  (fragments, obj, selectionSet) =>
+let rec collectFields:
+  (fragmentMap, Schema.obj('ctx, 'src), list(Language.Ast.selection)) =>
+  list(Language.Ast.field) =
+  (fragmentMap, obj, selectionSet) =>
     selectionSet
     |> Belt.List.map(
          _,
          fun
          | Language.Ast.Field(field) => [field]
          | Language.Ast.FragmentSpread(fragmentSpread) =>
-           switch (StringMap.find(fragmentSpread.name, fragments)) {
+           switch (StringMap.find(fragmentSpread.name, fragmentMap)) {
            | Some({typeCondition, selectionSet}) when matchesTypeCondition(typeCondition, obj) =>
-             collectFields(fragments, obj, selectionSet)
+             collectFields(fragmentMap, obj, selectionSet)
            | _ => []
            }
          | Language.Ast.InlineFragment(inlineFragment) =>
-           collectFields(fragments, obj, inlineFragment.selectionSet),
+           collectFields(fragmentMap, obj, inlineFragment.selectionSet),
        )
     |> Belt.List.flatten;
 
@@ -268,15 +278,24 @@ let fieldName: Language.Ast.field => string =
   | {alias: Some(alias)} => alias
   | field => field.name;
 
-let getObjField = (fieldName: string, obj: Schema.obj('src)): option(Schema.field('src)) =>
+let getObjField =
+    (fieldName: string, obj: Schema.obj('ctx, 'src)): option(Schema.field('ctx, 'src)) =>
   obj.fields
   |> Lazy.force
   |> Belt.List.getBy(_, (Schema.Field(field)) => field.name == fieldName);
 
+
 let rec resolveValue:
-  type src. (executionContext, src, Language.Ast.field, Schema.typ(src)) => Language.Ast.constValue =
+  type ctx src.
+    (executionContext(ctx), src, Language.Ast.field, Schema.typ(ctx, src)) =>
+    Language.Ast.constValue =
   (executionContext, src, field, typ) =>
     switch (typ) {
+    | Schema.Nullable(typ') =>
+      switch (src) {
+      | Some(src') => resolveValue(executionContext, src', field, typ')
+      | None => `Null
+      }
     | Schema.Scalar(scalar) => scalar.serialize(src)
     | Schema.Enum(enum) =>
       switch (Belt.List.getBy(enum.values, enumValue => enumValue.value == src)) {
@@ -284,24 +303,28 @@ let rec resolveValue:
       | None => `Null
       }
     | Schema.Object(obj) =>
-      let fields = collectFields(executionContext.fragments, obj, field.selectionSet);
+      let fields = collectFields(executionContext.fragmentMap, obj, field.selectionSet);
       `Map(resolveFields(executionContext, src, obj, fields));
     | Schema.List(typ') =>
       `List(Belt.List.map(src, srcItem => resolveValue(executionContext, srcItem, field, typ')))
-    | _ => failwith("resolve type Not implemented")
+    | Schema.Abstract(_) =>
+      let Schema.AbstractValue((typ', src')) = src;
+      resolveValue(executionContext, src', field, typ');
     }
 
 and resolveField:
-  type src. (executionContext, src, Language.Ast.field, Schema.field(src)) => (string, Language.Ast.constValue) =
+  type ctx src.
+    (executionContext(ctx), src, Language.Ast.field, Schema.field(ctx, src)) =>
+    (string, Language.Ast.constValue) =
   (executionContext, src, field, Schema.Field(fieldDef)) => {
     let name = fieldName(field);
-    let resolver = fieldDef.resolve(src);
+    let resolver = fieldDef.resolve(executionContext.ctx, src);
 
     switch (
       Arg.evalArgList(
         StringMap.empty,
         ~fieldName=fieldDef.name,
-        fieldDef.arguments,
+        fieldDef.args,
         field.arguments,
         resolver,
       )
@@ -314,30 +337,29 @@ and resolveField:
   }
 
 and resolveFields:
-  type src.
-    (executionContext, src, Schema.obj(src), list(Language.Ast.field)) => list((string, Language.Ast.constValue)) =
+  type ctx src.
+    (executionContext(ctx), src, Schema.obj(ctx, src), list(Language.Ast.field)) =>
+    list((string, Language.Ast.constValue)) =
   (executionContext, src, obj, fields) =>
     Belt.List.map(fields, field =>
       switch (getObjField(field.name, obj)) {
       | Some(objField) => resolveField(executionContext, src, field, objField)
-      | None => failwith("Field " ++ field.name ++ "is not defined on type " ++ obj.name)
+      | None => failwith("Field " ++ field.name ++ " is not defined on type " ++ obj.name)
       }
     );
 
 let executeOperation =
-    (schema: Schema.t, fragments: fragments, operation: Language.Ast.operationDefinition): Language.Ast.constValue =>
+    (executionContext: executionContext('ctx), operation: Language.Ast.operationDefinition)
+    : Language.Ast.constValue =>
   switch (operation.operationType) {
   | Query =>
-    let fields = collectFields(fragments, schema.query, operation.selectionSet);
-    `Map(
-      resolveFields(
-        {schema, fragments, operation, variables: StringMap.empty},
-        (),
-        schema.query,
-        fields,
-      ),
-    );
-
+    let fields =
+      collectFields(
+        executionContext.fragmentMap,
+        executionContext.schema.query,
+        operation.selectionSet,
+      );
+    `Map(resolveFields(executionContext, (), executionContext.schema.query, fields));
   | _ => failwith("Mutation/Subscription Not implemented")
   };
 
@@ -352,21 +374,42 @@ let collectOperations = (document: Language.Ast.document) =>
 let collectFragments = (document: Language.Ast.document) =>
   Belt.List.reduceReverse(document.definitions, StringMap.empty, (fragments, x) =>
     switch (x) {
-    | Language.Ast.FragmentDefinition(fragment) => fragments |> StringMap.add(fragment.name, fragment)
+    | Language.Ast.FragmentDefinition(fragment) =>
+      fragments |> StringMap.add(fragment.name, fragment)
     | _ => fragments
     }
   );
 
 let execute =
-    (~_variables=StringMap.empty, schema: Schema.t, ~document: Language.Ast.document): Language.Ast.constValue => {
+    (
+      ~variables: variableList=[],
+      ~document: Language.Ast.document,
+      schema: Schema.t('ctx),
+      ~ctx: 'ctx,
+    )
+    : executionResult => {
   let operations = collectOperations(document);
-  let fragments = collectFragments(document);
+  let fragmentMap = collectFragments(document);
+
+  let variableMap =
+    Belt.List.reduce(variables, StringMap.empty, (map, (name, value)) =>
+      StringMap.add(name, value, map)
+    );
+
   let data =
-    operations |> Belt.List.map(_, executeOperation(schema, fragments)) |> Belt.List.headExn;
-  `Map([("data", data)]);
+    Belt.List.map(
+      operations,
+      operation => {
+        let executionContext = {schema, fragmentMap, operation, variableMap, ctx};
+        executeOperation(executionContext, operation);
+      },
+    )
+    |> Belt.List.headExn;
+
+  {data: data};
 };
 
-let rec resultToJson: Language.Ast.constValue => Js.Json.t =
+let rec constValueToJson: Language.Ast.constValue => Js.Json.t =
   fun
   | `String(string)
   | `Enum(string) => Js.Json.string(string)
@@ -374,12 +417,23 @@ let rec resultToJson: Language.Ast.constValue => Js.Json.t =
   | `Int(int) => Js.Json.number(float_of_int(int))
   | `Boolean(bool) => Js.Json.boolean(bool)
   | `List(list) =>
-    list |> Belt.List.map(_, item => resultToJson(item)) |> Array.of_list |> Js.Json.array
+    Belt.List.map(list, item => constValueToJson(item)) |> Array.of_list |> Js.Json.array
   | `Map(assocList) => {
-      let dict = Js.Dict.empty();
-      Belt.List.forEach(assocList, ((name, value)) =>
-        Js.Dict.set(dict, name, resultToJson(value))
-      );
+      let dict =
+        Belt.List.reduceReverse(
+          assocList,
+          Js.Dict.empty(),
+          (dict, (name, value)) => {
+            Js.Dict.set(dict, name, constValueToJson(value));
+            dict;
+          },
+        );
       Js.Json.object_(dict);
     }
   | `Null => Js.Json.null;
+
+let resultToJson: executionResult => Js.Json.t =
+  result => {
+    let constValue = `Map([("data", result.data)]);
+    constValueToJson(constValue);
+  };
