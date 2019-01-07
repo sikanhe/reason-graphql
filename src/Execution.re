@@ -358,7 +358,7 @@ let collectFragments = (document: Language.Ast.document) =>
   );
 
 let execute =
-    (~variables=StringMap.empty, schema: Schema.t, ~document: Language.Ast.document): Language.Ast.constValue => {
+    (~_variables=StringMap.empty, schema: Schema.t, ~document: Language.Ast.document): Language.Ast.constValue => {
   let operations = collectOperations(document);
   let fragments = collectFragments(document);
   let data =
