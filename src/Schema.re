@@ -20,34 +20,40 @@ module Arg = {
   type arg(_) =
     | Arg(argument('a)): arg('a)
     | DefaultArg(argumentWithDefault('a)): arg('a)
+
   and argument('a) = {
     name: string,
     description: option(string),
     typ: argType('a),
   }
+
   and argumentWithDefault('a) = {
     name: string,
     description: option(string),
     typ: argType(option('a)),
     default: 'a,
   }
+
   and argType(_) =
     | Scalar(scalar('a)): argType('a)
     | Enum(enum('a)): argType('a)
     | InputObject(inputObject('a, 'b)): argType('a)
     | Nullable(argType('a)): argType(option('a))
     | List(argType('a)): argType(list('a))
+
   and scalar('a) = {
     name: string,
     description: option(string),
-    parse: Ast.constValue => Belt.Result.t('a, string),
+    parse: Language.Ast.constValue => Belt.Result.t('a, string),
   }
+
   and inputObject('a, 'b) = {
     name: string,
     description: option(string),
     fields: arglist('a, 'b),
     coerce: 'b,
   }
+
   and arglist(_, _) =
     | []: arglist('a, 'a)
     | ::(arg('a), arglist('b, 'c)): arglist('b, 'a => 'c);
@@ -115,24 +121,29 @@ type typ(_) =
   | Object(obj('src)): typ('src)
   | Interface(interface('src)): typ('src)
   | Nullable(typ('src)): typ(option('src))
+
 and scalar('src) = {
   name: string,
   description: option(string),
-  serialize: 'src => Ast.constValue,
+  serialize: 'src => Language.Ast.constValue,
 }
+
 and obj('src) = {
   name: string,
   description: option(string),
   fields: Lazy.t(list(field('src))),
   implements: list(interface('src)),
 }
+
 and interface('src) = {
   name: string,
   description: option(string),
   fields: Lazy.t(list(field('src))),
 }
+
 and field('src) =
   | Field(fieldDefinition('src, 'out, 'a, 'args)): field('src)
+
 and fieldDefinition('src, 'out, 'a, 'args) = {
   name: string,
   description: option(string),

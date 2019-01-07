@@ -1,7 +1,7 @@
-open Ast;
-open Belt;
+open Language_Ast;
 
-let join = (list, seperator) => list->List.keep(x => x !== "") |> String.concat(seperator);
+let join = (list, seperator) =>
+  list |> Belt.List.keep(_, x => x !== "") |> String.concat(seperator);
 
 let wrap = (left, str, right) => str === "" ? "" : left ++ str ++ right;
 
@@ -15,7 +15,7 @@ let block =
   | [] => ""
   | list => "{\n" ++ indent(join(list, "\n")) ++ "\n}";
 
-let rec printValue: Ast.value => string =
+let rec printValue: value => string =
   fun
   | `Int(int) => string_of_int(int)
   | `Float(float) => string_of_float(float)
@@ -24,10 +24,11 @@ let rec printValue: Ast.value => string =
   | `Null => "null"
   | `Variable(string) => "$" ++ string
   | `Enum(enum) => enum
-  | `List(values) => "[" ++ join(values->List.map(printValue), ", ") ++ "]"
+  | `List(values) => "[" ++ join(values |> Belt.List.map(_, printValue), ", ") ++ "]"
   | `Map(fields) => "{" ++ printObjectFields(fields) ++ "}"
-and printObjectFields = fields =>
-  fields->List.map(printObjectField)->join(", ")
+
+and printObjectFields = fields => fields |> Belt.List.map(_, printObjectField) |> join(_, ", ")
+
 and printObjectField = ((k, v)) => k ++ ":" ++ printValue(v);
 
 let rec printType =
@@ -38,28 +39,33 @@ let rec printType =
 
 let printVariableDef = ({variable, typ}: variableDefinition) =>
   printValue(variable) ++ ": " ++ printType(typ);
-let printVariables = vars => vars->List.map(printVariableDef)->join(", ");
+let printVariables = vars => vars |> Belt.List.map(_, printVariableDef) |> join(_, ", ");
 
 let printArgument = ((name, value)) => name ++ ": " ++ printValue(value);
-let printArguments = (args: list((string, Ast.value))) => args->List.map(printArgument)->join(", ");
+let printArguments = (args: list((string, value))) =>
+  args |> Belt.List.map(_, printArgument) |> join(_, ", ");
 
 let printDirective = ({name, arguments}: directive) =>
   "@" ++ name ++ wrap("(", printArguments(arguments), ")");
 
-let printDirectives = directives => directives->List.map(printDirective)->join(" ");
+let printDirectives = directives =>
+  directives |> Belt.List.map(_, printDirective) |> join(_, " ");
 
 let printOpt =
   fun
   | Some(v) => v
   | None => "";
 
-let rec printSelectionSet = selectionSet => selectionSet->List.map(printSelection)->block
+let rec printSelectionSet = selectionSet =>
+  selectionSet |> Belt.List.map(_, printSelection) |> block
+
 and printSelection =
   fun
   | Field(field) => printField(field)
   | FragmentSpread(fragmentSpread) => printFragmentSpread(fragmentSpread)
   | InlineFragment(inlineFragmentDefinition) =>
     printInlineFragmentDefinition(inlineFragmentDefinition)
+
 and printField = ({alias, name, arguments, directives, selectionSet}) =>
   join(
     [
@@ -69,12 +75,15 @@ and printField = ({alias, name, arguments, directives, selectionSet}) =>
     ],
     " ",
   )
+
 and printAlias =
   fun
   | Some(alias) => alias ++ ": "
   | None => ""
+
 and printFragmentSpread = ({name, directives}) =>
   "..." ++ name ++ wrap(" ", printDirectives(directives), "")
+
 and printInlineFragmentDefinition = ({typeCondition, selectionSet, directives}) =>
   join(
     [
@@ -100,7 +109,11 @@ let printOperationDef =
 
   switch (operationDef) {
   | {operationType: Query, name: None, directives: [], variableDefinition: []} => selectionSet
-  | {name} => join([operationTypeStr, join([printOpt(name), varDefs], ""), directives, selectionSet], " ")
+  | {name} =>
+    join(
+      [operationTypeStr, join([printOpt(name), varDefs], ""), directives, selectionSet],
+      " ",
+    )
   };
 };
 
@@ -119,4 +132,5 @@ let printDefinition = definition =>
   | FragmentDefinition(fragmentDef) => printFragmentDef(fragmentDef)
   };
 
-let print = ({definitions}: document) => join(definitions->List.map(printDefinition), "\n\n");
+let print = ({definitions}: document) =>
+  definitions |> Belt.List.map(_, printDefinition) |> join(_, "\n\n");

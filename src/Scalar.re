@@ -1,8 +1,8 @@
 module type ScalarDef = {
   let name: string;
   let description: option(string);
-  let parse: Ast.constValue => Belt.Result.t('src, string);
-  let serialize: 'src => Ast.constValue;
+  let parse: Language.Ast.constValue => Belt.Result.t('src, string);
+  let serialize: 'src => Language.Ast.constValue;
 };
 
 module Make = (ScalarDef: ScalarDef) => {

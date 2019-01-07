@@ -67,7 +67,7 @@ type t = {
   mutable lineStart: int,
 };
 
-let tok = (~value="", ~prev=None, kind, ~start, ~end_, ~line, ~column) => {
+let tok = (~value="", ~prev=?, kind, ~start, ~end_, ~line, ~column) => {
   kind,
   location: {
     start,
