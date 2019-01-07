@@ -1,4 +1,5 @@
 open Jest;
+open Language;
 
 describe("Parse and print a graphql query", () => {
   open Expect;

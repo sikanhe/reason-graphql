@@ -1,4 +1,5 @@
-open Ast;
+open Language_Ast;
+module Lexer = Language_Lexer;
 
 /**
  * If the next token is of the given kind, return that token after advancing
@@ -218,13 +219,13 @@ let rec parseTypeReference = (lexer: Lexer.t) => {
   skip(lexer, BANG) ? NonNullType(typ) : typ;
 };
 
-let parseArgument = (lexer: Lexer.t): (string, Ast.value) => {
+let parseArgument = (lexer: Lexer.t): (string, value) => {
   let name = parseName(lexer);
   expect(lexer, COLON);
   (name, parseValueLiteral(lexer, ~isConst=false));
 };
 
-let parseConstArgument = (lexer: Lexer.t): (string, Ast.value) => {
+let parseConstArgument = (lexer: Lexer.t): (string, value) => {
   let name = parseName(lexer);
   expect(lexer, COLON);
   (name, parseValueLiteral(lexer, ~isConst=true));
@@ -275,11 +276,13 @@ let parseVariableDefinitions = (lexer: Lexer.t) =>
   | PAREN_L => many(lexer, PAREN_L, parseVariableDefinition, PAREN_R)
   | _ => []
   };
+
 /**
  * SelectionSet : { Selection+ }
  */
 let rec parseSelectionSet = (lexer: Lexer.t): list(selection) =>
   many(lexer, BRACE_L, parseSelection, BRACE_R)
+
 /**
  * Selection :
  *   - Field
@@ -291,6 +294,7 @@ and parseSelection = (lexer: Lexer.t): selection =>
   | SPREAD => parseFragment(lexer)
   | _ => parseField(lexer)
   }
+
 /**
  * FragmentName : Name but not `on`
  */
@@ -299,6 +303,7 @@ and parseFragmentName = ({token} as lexer: Lexer.t) =>
   | "on" => unexpected(lexer)
   | _ => parseName(lexer)
   }
+
 /**
  * Corresponds to both FragmentSpread and InlineFragment in the spec.
  * FragmentSpread : ... FragmentName Directives?
@@ -322,6 +327,7 @@ and parseFragment = (lexer: Lexer.t) => {
     })
   };
 }
+
 and parseField = (lexer: Lexer.t) => {
   let name = parseName(lexer);
   let (alias, name) =
@@ -347,7 +353,7 @@ and parseField = (lexer: Lexer.t) => {
  *  - SelectionSet
  *  - OperationType Name? VariableDefinitions? Directives? SelectionSet
  */
-let parseOperationDefintiion = (lexer: Lexer.t) =>
+let parseOperationDefinition = (lexer: Lexer.t) =>
   switch (lexer.token.kind) {
   | BRACE_L =>
     OperationDefinition({
@@ -400,11 +406,11 @@ let parseExecutableDefinition = ({token} as lexer: Lexer.t) =>
     switch (token.value) {
     | "query"
     | "mutation"
-    | "subscription" => parseOperationDefintiion(lexer)
+    | "subscription" => parseOperationDefinition(lexer)
     | "fragment" => parseFragmentDefinition(lexer)
     | _ => unexpected(lexer)
     }
-  | BRACE_L => parseOperationDefintiion(lexer)
+  | BRACE_L => parseOperationDefinition(lexer)
   | _ => unexpected(lexer)
   };
 
