@@ -1,7 +1,3 @@
-module StringMap = Map.Make(String);
-
-/* Values */
-
 type primitiveValue = [
   | `Int(int)
   | `Float(float)
@@ -63,7 +59,6 @@ and field = {
   directives: list(directive),
 }
 
-/* Fragments */
 and fragmentDefinition = {
   name: string,
   typeCondition: string,
@@ -88,13 +83,11 @@ and directive = {
   arguments: list((string, value)),
 }
 
-/* Type Reference */
 and typeReference =
   | NamedType(string)
   | ListType(typeReference)
   | NonNullType(typeReference)
 
-/* Type System Definition */
 and typeSystemDefinition =
   | SchemaDefinition(schemaDefinition)
   | TypeDefinition(typeDefinition)

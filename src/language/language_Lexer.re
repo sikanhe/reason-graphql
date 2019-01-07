@@ -280,7 +280,8 @@ let readNumber = (body, start, line, column, prev) => {
  *
  * "([^"\\\u000A\u000D]|(\\(u[0-9a-fA-F]{4}|["\\/bfnrt])))*"
  */
-let readString = (_body, _start, _line, _column, _prev) => failwith("Read String is Not Implemented");
+let readString = (_body, _start, _line, _column, _prev) =>
+  failwith("Read String is Not Implemented");
 
 /**
  * Gets the next token from the source starting at the given position.

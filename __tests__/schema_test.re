@@ -6,49 +6,66 @@ describe("Parse and print a graphql query", () => {
 
   let query = {|
     {
-      heroes(ids: [1000, 1002]) {
+      hero(episode: EMPIRE) {
         id
         name
         appearsIn
+      },
+      artoo: hero {
+        name
+      },
+      human(id: 1001) {
+        id
+        name
+        homePlanet
+      },
+      droid(id: 2000) {
+        name
+      },
+      droidNotFound: droid(id: 999) {
+        id 
+        name
       }
     }
   |};
 
   let schema = StarWarsSchema.schema;
 
-  let result = schema->Execution.execute(~document=Parser.parse(query));
+  let result =
+    schema
+    |> Execution.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Execution.resultToJson;
 
   test("returns the right data", () => {
-    let expected: Ast.constValue =
-      `Map([
-        (
-          "data",
+    let expected =
+      Execution.{
+        data:
           `Map([
             (
-              "heroes",
-              `List([
-                `Map([
-                  ("id", `String("1000")),
-                  ("name", `String("Luke Skywalker")),
-                  (
-                    "appearsIn",
-                    `List([`String("NEWHOPE"), `String("JEDI"), `String("EMPIRE")]),
-                  ),
-                ]),
-                `Map([
-                  ("id", `String("1002")),
-                  ("name", `String("Han Solo")),
-                  (
-                    "appearsIn",
-                    `List([`String("NEWHOPE"), `String("JEDI"), `String("EMPIRE")]),
-                  ),
-                ]),
+              "hero",
+              `Map([
+                ("id", `Int(1000)),
+                ("name", `String("Luke Skywalker")),
+                (
+                  "appearsIn",
+                  `List([`String("NEWHOPE"), `String("JEDI"), `String("EMPIRE")]),
+                ),
               ]),
             ),
+            ("artoo", `Map([("name", `String("R2-D2"))])),
+            (
+              "human",
+              `Map([
+                ("id", `Int(1001)),
+                ("name", `String("Darth Vader")),
+                ("homePlanet", `String("Tatooine")),
+              ]),
+            ),
+            ("droid", `Map([("name", `String("C-3PO"))])),
+            ("droidNotFound", `Null)
           ]),
-        ),
-      ]);
+      };
 
-    expect(result) |> toEqual(expected);
+    expect(result) |> toEqual(expected->Execution.resultToJson);
   });
 });
