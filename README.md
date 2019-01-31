@@ -1,5 +1,19 @@
 ### Type safe GraphQL server in pure reason. Compiles to nodejs (native soon).
 
+####TODO: 
+- [ ] Language
+  - [x] Parser
+  - [x] Print Operations 
+  - [ ] Print SDL 
+
+- [ ] Schema 
+  - [x] Query 
+  - [ ] Mutation 
+  - [ ] Async Fields
+  - [ ] Directives
+  - [ ] Subscription
+  
+
 ```reason
 open Schema;
 
