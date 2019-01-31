@@ -322,7 +322,7 @@ and resolveField:
 
     switch (
       Arg.evalArgList(
-        StringMap.empty,
+        executionContext.variableMap,
         ~fieldName=fieldDef.name,
         fieldDef.args,
         field.arguments,

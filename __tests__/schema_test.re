@@ -5,8 +5,8 @@ describe("Parse and print a graphql query", () => {
   open Expect;
 
   let query = {|
-    {
-      hero(episode: EMPIRE) {
+    query MyQuery($ep: Episode!, $droidId: Int!){
+      hero(episode: $ep) {
         id
         name
         appearsIn
@@ -19,11 +19,11 @@ describe("Parse and print a graphql query", () => {
         name
         homePlanet
       },
-      droid(id: 2000) {
+      droid(id: $droidId) {
         name
       },
       droidNotFound: droid(id: 999) {
-        id 
+        id
         name
       }
     }
@@ -33,7 +33,12 @@ describe("Parse and print a graphql query", () => {
 
   let result =
     schema
-    |> Execution.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Execution.execute(
+         _,
+         ~document=Parser.parse(query),
+         ~ctx=(),
+         ~variables=[("ep", `String("EMPIRE")), ("droidId", `Int(2000))],
+       )
     |> Execution.resultToJson;
 
   test("returns the right data", () => {
@@ -62,7 +67,7 @@ describe("Parse and print a graphql query", () => {
               ]),
             ),
             ("droid", `Map([("name", `String("C-3PO"))])),
-            ("droidNotFound", `Null)
+            ("droidNotFound", `Null),
           ]),
       };
 

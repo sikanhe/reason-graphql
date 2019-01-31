@@ -180,10 +180,10 @@ let obj = (~description=?, ~implements: ref(list(abstract))=ref([]), ~fields, na
   self;
 };
 
-let field = (~description=?, ~args, ~deprecated=NotDeprecated, ~typ, ~resolve, name) =>
+let field = (~description=?, ~deprecated=NotDeprecated, ~args, ~resolve, name, typ) =>
   Field({name, typ, resolve, deprecated, description, args, lift: a => a});
 
-let abstractField = (~description=?, ~deprecated=NotDeprecated, name, ~typ, ~args) =>
+let abstractField = (~description=?, ~deprecated=NotDeprecated, ~args, name, typ) =>
   AbstractField(
     Field({lift: a => a, name, description, deprecated, typ, args, resolve: Obj.magic()}),
   );

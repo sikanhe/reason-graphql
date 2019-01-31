@@ -11,15 +11,15 @@ let episodeEnum =
       ],
     )
   );
-  
+
 let characterInterface: Schema.abstractType('ctx, [ | `Character]) =
   Schema.(
     interface("Character", ~fields=character =>
       [
-        abstractField("id", ~typ=int, ~args=[]),
-        abstractField("name", ~typ=string, ~args=[]),
-        abstractField("appearsIn", ~typ=list(episodeEnum.fieldType), ~args=[]),
-        abstractField("friends", ~typ=list(character), ~args=[]),
+        abstractField("id", int, ~args=[]),
+        abstractField("name", string, ~args=[]),
+        abstractField("appearsIn", list(episodeEnum.fieldType), ~args=[]),
+        abstractField("friends", list(character), ~args=[]),
       ]
     )
   );
@@ -28,22 +28,21 @@ let humanType =
   Schema.(
     obj("Human", ~description="A humanoid creature in the Star Wars universe.", ~fields=humanType =>
       [
-        field("id", ~typ=int, ~args=[], ~resolve=(_ctx, human: StarWars.human) => human.id),
-        field("name", ~typ=string, ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+        field("id", int, ~args=[], ~resolve=(_ctx, human: StarWars.human) => human.id),
+        field("name", string, ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
           human.StarWars.name
         ),
         field(
           "appearsIn",
-          ~typ=list(episodeEnum.fieldType),
+          list(episodeEnum.fieldType),
           ~args=[],
           ~resolve=(_ctx, human: StarWars.human) =>
           human.StarWars.appearsIn
         ),
-        field("friends", ~typ=list(humanType), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+        field("friends", list(humanType), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
           StarWars.getFriends(human.StarWars.friends)
         ),
-        field(
-          "homePlanet", ~typ=nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+        field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
           human.homePlanet
         ),
       ]
@@ -55,18 +54,18 @@ let droidType =
     obj(
       "Droid", ~description="A mechanical creature in the Star Wars universe.", ~fields=_droidType =>
       [
-        field("id", ~typ=int, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) => droid.id),
-        field("name", ~typ=string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
+        field("id", int, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) => droid.id),
+        field("name", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
           droid.StarWars.name
         ),
         field(
           "appearsIn",
-          ~typ=list(episodeEnum.fieldType),
+          list(episodeEnum.fieldType),
           ~args=[],
           ~resolve=(_ctx, droid: StarWars.droid) =>
           droid.StarWars.appearsIn
         ),
-        field("primaryFunction", ~typ=string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
+        field("primaryFunction", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
           droid.primaryFunction
         ),
       ]
@@ -81,7 +80,7 @@ let queryType =
     rootQuery([
       field(
         "hero",
-        ~typ=characterInterface,
+        characterInterface,
         ~args=
           Arg.[
             arg(
@@ -98,12 +97,10 @@ let queryType =
         | _ => droidAsCharacter(StarWarsData.artoo)
         }
       ),
-      field(
-        "human", ~typ=nullable(humanType), ~args=Arg.[arg("id", int)], ~resolve=(_ctx, (), id) =>
+      field("human", nullable(humanType), ~args=Arg.[arg("id", int)], ~resolve=(_ctx, (), id) =>
         StarWarsData.getHuman(id)
       ),
-      field(
-        "droid", ~typ=nullable(droidType), ~args=Arg.[arg("id", int)], ~resolve=(_ctx, (), id) =>
+      field("droid", nullable(droidType), ~args=Arg.[arg("id", int)], ~resolve=(_ctx, (), id) =>
         StarWarsData.getDroid(id)
       ),
     ])
