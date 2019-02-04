@@ -86,11 +86,8 @@ let getCharacter = id => {
 
 type updateCharacterNameError =
   | CharacterNotFound(int);
-type result('a, 'b) =
-  | Ok('a)
-  | Error('b);
 
-type updateCharacterResult = result(character, updateCharacterNameError);
+type updateCharacterResult = Belt.Result.t(character, updateCharacterNameError);
 
 let updateCharacterName = (id, name): updateCharacterResult => {
   switch (getCharacter(id)) {

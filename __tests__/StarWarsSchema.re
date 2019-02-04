@@ -23,8 +23,15 @@ let rec characterInterface: Schema.abstractType('ctx, [ | `Character]) =
       ]
     )
   )
-and humanAsCharacter = lazy (Schema.addType(characterInterface, Lazy.force(humanTypeLazy)))
-and droidAsCharacter = lazy (Schema.addType(characterInterface, Lazy.force(droidTypeLazy)))
+
+and humanAsCharacterInterface =
+  lazy (Schema.addType(characterInterface, Lazy.force(humanTypeLazy)))
+and droidAsCharacterInterface =
+  lazy (Schema.addType(characterInterface, Lazy.force(droidTypeLazy)))
+and asCharacterInterface =
+  fun
+  | StarWars.Human(human) => Lazy.force(humanAsCharacterInterface, human)
+  | Droid(droid) => Lazy.force(droidAsCharacterInterface, droid)
 
 and humanTypeLazy =
   lazy
@@ -44,13 +51,7 @@ and humanTypeLazy =
           ),
           field(
             "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
-            StarWars.getFriends(human.friends)
-            |> Belt.List.map(
-                 _,
-                 fun
-                 | Human(human) => Lazy.force(humanAsCharacter, human)
-                 | Droid(droid) => Lazy.force(droidAsCharacter, droid),
-               )
+            StarWars.getFriends(human.friends) |> List.map(asCharacterInterface)
           ),
           field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
             human.homePlanet
@@ -80,13 +81,7 @@ and droidTypeLazy =
           ),
           field(
             "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
-            StarWars.getFriends(droid.friends)
-            |> Belt.List.map(
-                 _,
-                 fun
-                 | Human(human) => Lazy.force(humanAsCharacter, human)
-                 | Droid(droid) => Lazy.force(droidAsCharacter, droid),
-               )
+            StarWars.getFriends(droid.friends) |> List.map(asCharacterInterface)
           ),
         ]
       )
@@ -94,8 +89,8 @@ and droidTypeLazy =
 
 let humanType = Lazy.force(humanTypeLazy);
 let droidType = Lazy.force(droidTypeLazy);
-let humanAsCharacter = Lazy.force(humanAsCharacter);
-let droidAsCharacter = Lazy.force(droidAsCharacter);
+let humanAsCharacterInterface = Lazy.force(humanAsCharacterInterface);
+let droidAsCharacterInterface = Lazy.force(droidAsCharacterInterface);
 
 let queryType =
   Schema.(
@@ -115,8 +110,8 @@ let queryType =
           ],
         ~resolve=(_ctx, (), episode) =>
         switch (episode) {
-        | Some(EMPIRE) => humanAsCharacter(StarWarsData.luke)
-        | _ => droidAsCharacter(StarWarsData.artoo)
+        | Some(EMPIRE) => humanAsCharacterInterface(StarWarsData.luke)
+        | _ => droidAsCharacterInterface(StarWarsData.artoo)
         }
       ),
       field(
@@ -150,8 +145,7 @@ let updateCharacterResponse =
           ~args=[],
           ~resolve=(_, updateCharResult: StarWars.updateCharacterResult) =>
           switch (updateCharResult) {
-          | Ok(Human(human)) => Some(humanAsCharacter(human))
-          | Ok(Droid(droid)) => Some(droidAsCharacter(droid))
+          | Ok(character) => Some(asCharacterInterface(character))
           | _ => None
           }
         ),
