@@ -7,6 +7,9 @@
     "clean": "bsb -clean-world",
     "test": "yarn build && jest"
   },
+  "jest": {
+    "testMatch": ["**/?(*_)(spec|test).bs.js?(x)"]
+  },
   "keywords": [
     "BuckleScript",
     "GraphQL"

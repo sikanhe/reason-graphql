@@ -18,9 +18,7 @@
   },
   "suffix": ".bs.js",
   "bs-dependencies": [],
-  "bs-dev-dependencies": [
-    "@glennsl/bs-jest"
-  ],
+  "bs-dev-dependencies": ["@glennsl/bs-jest"],
   "warnings": {
     "number": "-45-44",
     "error": "+101"

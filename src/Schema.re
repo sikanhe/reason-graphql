@@ -155,7 +155,7 @@ type abstractType('ctx, 'a) = typ('ctx, abstractValue('ctx, 'a));
 
 type t('ctx) = {
   query: obj('ctx, unit),
-  /* mutation: obj(unit), */
+  mutation: obj('ctx, unit),
 };
 
 type combinedEnum('ctx, 'a) = {
@@ -212,7 +212,14 @@ let rootQuery = (fields): obj('ctx, unit) => {
   abstracts: ref([]),
 };
 
-let create = (~query) => {query: query};
+let rootMutation = (fields): obj('ctx, unit) => {
+  name: "Mutation",
+  description: None,
+  fields: lazy fields,
+  abstracts: ref([]),
+};
+
+let create = (~query, ~mutation) => {query, mutation};
 
 /* Built in scalars */
 let string = Scalar({name: "String", description: None, serialize: str => `String(str)});

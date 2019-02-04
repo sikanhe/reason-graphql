@@ -352,7 +352,7 @@ let executeOperation =
     (executionContext: executionContext('ctx), operation: Language.Ast.operationDefinition)
     : Language.Ast.constValue =>
   switch (operation.operationType) {
-  | Query =>
+  | Query => /* TODO: Make parallell */
     let fields =
       collectFields(
         executionContext.fragmentMap,
@@ -360,7 +360,15 @@ let executeOperation =
         operation.selectionSet,
       );
     `Map(resolveFields(executionContext, (), executionContext.schema.query, fields));
-  | _ => failwith("Mutation/Subscription Not implemented")
+  | Mutation => /* TODO: Ensure Sequencial */
+    let fields =
+      collectFields(
+        executionContext.fragmentMap,
+        executionContext.schema.mutation,
+        operation.selectionSet,
+      );
+    `Map(resolveFields(executionContext, (), executionContext.schema.mutation, fields));
+  | _ => failwith("Subscription Not implemented")
   };
 
 let collectOperations = (document: Language.Ast.document) =>

@@ -40,7 +40,7 @@ let humanType =
           human.StarWars.appearsIn
         ),
         field("friends", list(humanType), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
-          StarWars.getFriends(human.StarWars.friends)
+          StarWars.getFriends(human.friends)
         ),
         field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
           human.homePlanet
@@ -97,13 +97,38 @@ let queryType =
         | _ => droidAsCharacter(StarWarsData.artoo)
         }
       ),
-      field("human", nullable(humanType), ~args=Arg.[arg("id", int)], ~resolve=(_ctx, (), id) =>
-        StarWarsData.getHuman(id)
+      field(
+        "human",
+        nullable(humanType),
+        ~args=Arg.[arg("id", int)],
+        ~resolve=(_ctx, (), argId) => {
+          let id = argId;
+          StarWarsData.getHuman(id);
+        },
       ),
-      field("droid", nullable(droidType), ~args=Arg.[arg("id", int)], ~resolve=(_ctx, (), id) =>
-        StarWarsData.getDroid(id)
+      field(
+        "droid",
+        nullable(droidType),
+        ~args=Arg.[arg("id", int)],
+        ~resolve=(_ctx, (), argId) => {
+          let id = argId;
+          StarWarsData.getDroid(id);
+        },
       ),
     ])
   );
 
-let schema: Schema.t(unit) = Schema.create(~query=queryType);
+let mutationType =
+  Schema.(
+    rootMutation([
+      field(
+        "updateCharacter",
+        characterInterface,
+        ~args=Arg.[arg("characterId", int)],
+        ~resolve=(_ctx, (), charId) =>
+        humanAsCharacter(StarWarsData.luke)
+      ),
+    ])
+  );
+
+let schema: Schema.t(unit) = Schema.create(~query=queryType, ~mutation=mutationType);

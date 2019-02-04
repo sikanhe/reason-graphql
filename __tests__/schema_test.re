@@ -1,7 +1,7 @@
 open Jest;
 open Language;
 
-describe("Parse and print a graphql query", () => {
+describe("Query operation", () => {
   open Expect;
 
   let query = {|
@@ -68,6 +68,43 @@ describe("Parse and print a graphql query", () => {
             ),
             ("droid", `Map([("name", `String("C-3PO"))])),
             ("droidNotFound", `Null),
+          ]),
+      };
+
+    expect(result) |> toEqual(expected->Execution.resultToJson);
+  });
+});
+
+describe("Mutation operation", () => {
+  open Expect;
+
+  let mutation = {|
+    mutation MyMutation($id: Int!){
+      updateCharacter(characterId: $id) {
+        id
+        name
+      }
+    }
+  |};
+
+  let schema = StarWarsSchema.schema;
+
+  let result =
+    schema
+    |> Execution.execute(
+         _,
+         ~document=Parser.parse(mutation),
+         ~ctx=(),
+         ~variables=[("id", `Int(1000))],
+       )
+    |> Execution.resultToJson;
+
+  test("returns the right data", () => {
+    let expected =
+      Execution.{
+        data:
+          `Map([
+            ("updateCharacter", `Map([("id", `Int(1000)), ("name", `String("Luke Skywalker"))])),
           ]),
       };
 
