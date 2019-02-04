@@ -24,56 +24,75 @@ let characterInterface: Schema.abstractType('ctx, [ | `Character]) =
     )
   );
 
-let humanType =
-  Schema.(
-    obj("Human", ~description="A humanoid creature in the Star Wars universe.", ~fields=humanType =>
-      [
-        field("id", int, ~args=[], ~resolve=(_ctx, human: StarWars.human) => human.id),
-        field("name", string, ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
-          human.StarWars.name
-        ),
-        field(
-          "appearsIn",
-          list(episodeEnum.fieldType),
-          ~args=[],
-          ~resolve=(_ctx, human: StarWars.human) =>
-          human.StarWars.appearsIn
-        ),
-        field("friends", list(humanType), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
-          StarWars.getFriends(human.friends)
-        ),
-        field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
-          human.homePlanet
-        ),
-      ]
+let rec humanTypeLazy =
+    lazy Schema.(
+      obj("Human", ~description="A humanoid creature in the Star Wars universe.", ~fields=_ =>
+        [
+          field("id", int, ~args=[], ~resolve=(_ctx, human: StarWars.human) => human.id),
+          field("name", string, ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+            human.StarWars.name
+          ),
+          field(
+            "appearsIn",
+            list(episodeEnum.fieldType),
+            ~args=[],
+            ~resolve=(_ctx, human: StarWars.human) =>
+            human.StarWars.appearsIn
+          ),
+          field(
+            "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+            StarWars.getFriends(human.friends)
+            |> Belt.List.map(
+                 _,
+                 fun
+                 | Human(human) => humanAsCharacter(human)
+                 | Droid(droid) => droidAsCharacter(droid),
+               )
+          ),
+          field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+            human.homePlanet
+          ),
+        ]
+      )
     )
-  );
 
-let droidType =
-  Schema.(
-    obj(
-      "Droid", ~description="A mechanical creature in the Star Wars universe.", ~fields=_droidType =>
-      [
-        field("id", int, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) => droid.id),
-        field("name", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
-          droid.StarWars.name
-        ),
-        field(
-          "appearsIn",
-          list(episodeEnum.fieldType),
-          ~args=[],
-          ~resolve=(_ctx, droid: StarWars.droid) =>
-          droid.StarWars.appearsIn
-        ),
-        field("primaryFunction", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
-          droid.primaryFunction
-        ),
-      ]
+and droidTypeLazy =
+    lazy Schema.(
+      obj("Droid", ~description="A mechanical creature in the Star Wars universe.", ~fields=_ =>
+        [
+          field("id", int, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) => droid.id),
+          field("name", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
+            droid.StarWars.name
+          ),
+          field(
+            "appearsIn",
+            list(episodeEnum.fieldType),
+            ~args=[],
+            ~resolve=(_ctx, droid: StarWars.droid) =>
+            droid.StarWars.appearsIn
+          ),
+          field("primaryFunction", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
+            droid.primaryFunction
+          ),
+          field(
+            "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
+            StarWars.getFriends(droid.friends)
+            |> Belt.List.map(
+                 _,
+                 fun
+                 | Human(human) => humanAsCharacter(human)
+                 | Droid(droid) => droidAsCharacter(droid),
+               )
+          ),
+        ]
+      )
     )
-  );
 
-let humanAsCharacter = Schema.addType(characterInterface, humanType);
-let droidAsCharacter = Schema.addType(characterInterface, droidType);
+and humanAsCharacter = human => Schema.addType(characterInterface, Lazy.force(humanTypeLazy), human)
+and droidAsCharacter = droid => Schema.addType(characterInterface, Lazy.force(droidTypeLazy), droid);
+
+let humanType = Lazy.force(humanTypeLazy);
+let droidType = Lazy.force(droidTypeLazy);
 
 let queryType =
   Schema.(
