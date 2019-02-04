@@ -104,7 +104,10 @@ describe("Mutation operation", () => {
       Executor.{
         data:
           `Map([
-            ("updateCharacter", `Map([("id", `Int(1000)), ("name", `String("Luke Skywalker"))])),
+            (
+              "updateCharacter",
+              `Map([("id", `Int(1000)), ("name", `String("Luke Skywalker"))]),
+            ),
           ]),
       };
 
