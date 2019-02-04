@@ -25,7 +25,8 @@ let characterInterface: Schema.abstractType('ctx, [ | `Character]) =
   );
 
 let rec humanTypeLazy =
-    lazy Schema.(
+  lazy
+    Schema.(
       obj("Human", ~description="A humanoid creature in the Star Wars universe.", ~fields=_ =>
         [
           field("id", int, ~args=[], ~resolve=(_ctx, human: StarWars.human) => human.id),
@@ -57,7 +58,8 @@ let rec humanTypeLazy =
     )
 
 and droidTypeLazy =
-    lazy Schema.(
+  lazy
+    Schema.(
       obj("Droid", ~description="A mechanical creature in the Star Wars universe.", ~fields=_ =>
         [
           field("id", int, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) => droid.id),
@@ -88,12 +90,11 @@ and droidTypeLazy =
       )
     )
 
-and humanAsCharacter = human => Schema.addType(characterInterface, Lazy.force(humanTypeLazy), human)
-and droidAsCharacter = droid => Schema.addType(characterInterface, Lazy.force(droidTypeLazy), droid);
+and humanAsCharacter = (h) => Schema.addType(characterInterface, Lazy.force(humanTypeLazy), h)
+and droidAsCharacter = (d) => Schema.addType(characterInterface, Lazy.force(droidTypeLazy), d);
 
 let humanType = Lazy.force(humanTypeLazy);
 let droidType = Lazy.force(droidTypeLazy);
-
 let queryType =
   Schema.(
     rootQuery([
