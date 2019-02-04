@@ -5,7 +5,7 @@ type episode =
 
 type human = {
   id: int,
-  mutable name: string,
+  name: string,
   friends: list(int),
   appearsIn: list(episode),
   homePlanet: option(string),
@@ -13,7 +13,7 @@ type human = {
 
 type droid = {
   id: int,
-  mutable name: string,
+  name: string,
   friends: list(int),
   appearsIn: list(episode),
   primaryFunction: string,
@@ -84,19 +84,18 @@ let getCharacter = id => {
   };
 };
 
-type updateCharacterNameError = CharacterNotFound(int);
-type result('a, 'b) = Ok('a) | Error('b);
+type updateCharacterNameError =
+  | CharacterNotFound(int);
+type result('a, 'b) =
+  | Ok('a)
+  | Error('b);
 
 type updateCharacterResult = result(character, updateCharacterNameError);
 
 let updateCharacterName = (id, name): updateCharacterResult => {
   switch (getCharacter(id)) {
-  | Some(Human(human)) =>
-    human.name = name;
-    Ok(Human(human));
-  | Some(Droid(droid)) =>
-    droid.name = name;
-    Ok(Droid(droid));
+  | Some(Human(human)) => Ok(Human({...human, name}))
+  | Some(Droid(droid)) => Ok(Droid({...droid, name}))
   | None => Error(CharacterNotFound(id))
   };
 };
