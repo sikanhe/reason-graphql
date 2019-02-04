@@ -12,7 +12,7 @@ let episodeEnum =
     )
   );
 
-let characterInterface: Schema.abstractType('ctx, [ | `Character]) =
+let rec characterInterface: Schema.abstractType('ctx, [ | `Character]) =
   Schema.(
     interface("Character", ~fields=character =>
       [
@@ -22,9 +22,11 @@ let characterInterface: Schema.abstractType('ctx, [ | `Character]) =
         abstractField("friends", list(character), ~args=[]),
       ]
     )
-  );
+  )
+and humanAsCharacter = lazy (Schema.addType(characterInterface, Lazy.force(humanTypeLazy)))
+and droidAsCharacter = lazy (Schema.addType(characterInterface, Lazy.force(droidTypeLazy)))
 
-let rec humanTypeLazy =
+and humanTypeLazy =
   lazy
     Schema.(
       obj("Human", ~description="A humanoid creature in the Star Wars universe.", ~fields=_ =>
@@ -46,8 +48,8 @@ let rec humanTypeLazy =
             |> Belt.List.map(
                  _,
                  fun
-                 | Human(human) => humanAsCharacter(human)
-                 | Droid(droid) => droidAsCharacter(droid),
+                 | Human(human) => Lazy.force(humanAsCharacter, human)
+                 | Droid(droid) => Lazy.force(droidAsCharacter, droid),
                )
           ),
           field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
@@ -82,19 +84,19 @@ and droidTypeLazy =
             |> Belt.List.map(
                  _,
                  fun
-                 | Human(human) => humanAsCharacter(human)
-                 | Droid(droid) => droidAsCharacter(droid),
+                 | Human(human) => Lazy.force(humanAsCharacter, human)
+                 | Droid(droid) => Lazy.force(droidAsCharacter, droid),
                )
           ),
         ]
       )
-    )
-
-and humanAsCharacter = (h) => Schema.addType(characterInterface, Lazy.force(humanTypeLazy), h)
-and droidAsCharacter = (d) => Schema.addType(characterInterface, Lazy.force(droidTypeLazy), d);
+    );
 
 let humanType = Lazy.force(humanTypeLazy);
 let droidType = Lazy.force(droidTypeLazy);
+let humanAsCharacter = Lazy.force(humanAsCharacter);
+let droidAsCharacter = Lazy.force(droidAsCharacter);
+
 let queryType =
   Schema.(
     rootQuery([
