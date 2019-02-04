@@ -33,17 +33,17 @@ describe("Query operation", () => {
 
   let result =
     schema
-    |> Execution.execute(
+    |> Executor.execute(
          _,
          ~document=Parser.parse(query),
          ~ctx=(),
          ~variables=[("ep", `String("EMPIRE")), ("droidId", `Int(2000))],
        )
-    |> Execution.resultToJson;
+    |> Executor.resultToJson;
 
   test("returns the right data", () => {
     let expected =
-      Execution.{
+      Executor.{
         data:
           `Map([
             (
@@ -71,7 +71,7 @@ describe("Query operation", () => {
           ]),
       };
 
-    expect(result) |> toEqual(expected->Execution.resultToJson);
+    expect(result) |> toEqual(expected->Executor.resultToJson);
   });
 });
 
@@ -91,23 +91,23 @@ describe("Mutation operation", () => {
 
   let result =
     schema
-    |> Execution.execute(
+    |> Executor.execute(
          _,
          ~document=Parser.parse(mutation),
          ~ctx=(),
          ~variables=[("id", `Int(1000))],
        )
-    |> Execution.resultToJson;
+    |> Executor.resultToJson;
 
   test("returns the right data", () => {
     let expected =
-      Execution.{
+      Executor.{
         data:
           `Map([
             ("updateCharacter", `Map([("id", `Int(1000)), ("name", `String("Luke Skywalker"))])),
           ]),
       };
 
-    expect(result) |> toEqual(expected->Execution.resultToJson);
+    expect(result) |> toEqual(expected->Executor.resultToJson);
   });
 });
