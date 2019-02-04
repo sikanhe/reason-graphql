@@ -79,10 +79,13 @@ describe("Mutation operation", () => {
   open Expect;
 
   let mutation = {|
-    mutation MyMutation($id: Int!){
-      updateCharacter(characterId: $id) {
-        id
-        name
+    mutation MyMutation($id: Int!, $name: String!){
+      updateCharacterName(characterId: $id, name: $name) {
+        character {
+          id
+          name
+        }
+        error
       }
     }
   |};
@@ -95,7 +98,7 @@ describe("Mutation operation", () => {
          _,
          ~document=Parser.parse(mutation),
          ~ctx=(),
-         ~variables=[("id", `Int(1000))],
+         ~variables=[("id", `Int(1000)), ("name", `String("Sikan Skywalker"))],
        )
     |> Executor.resultToJson;
 
@@ -105,8 +108,14 @@ describe("Mutation operation", () => {
         data:
           `Map([
             (
-              "updateCharacter",
-              `Map([("id", `Int(1000)), ("name", `String("Luke Skywalker"))]),
+              "updateCharacterName",
+              `Map([
+                (
+                  "character",
+                  `Map([("id", `Int(1000)), ("name", `String("Sikan Skywalker"))]),
+                ),
+                ("error", `Null),
+              ]),
             ),
           ]),
       };

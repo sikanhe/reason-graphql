@@ -5,7 +5,7 @@ type episode =
 
 type human = {
   id: int,
-  name: string,
+  mutable name: string,
   friends: list(int),
   appearsIn: list(episode),
   homePlanet: option(string),
@@ -13,11 +13,15 @@ type human = {
 
 type droid = {
   id: int,
-  name: string,
+  mutable name: string,
   friends: list(int),
   appearsIn: list(episode),
   primaryFunction: string,
 };
+
+type character =
+  | Human(human)
+  | Droid(droid);
 
 let luke = {
   id: 1000,
@@ -69,4 +73,32 @@ let artoo = {
 
 let getHuman = id => Belt.List.getBy([luke, han, leia, vader], human => human.id == id);
 let getDroid = id => Belt.List.getBy([threepio, artoo], droid => droid.id == id);
+let getCharacter = id => {
+  switch (getHuman(id)) {
+  | Some(human) => Some(Human(human))
+  | None =>
+    switch (getDroid(id)) {
+    | Some(droid) => Some(Droid(droid))
+    | None => None
+    }
+  };
+};
+
+type updateCharacterNameError = CharacterNotFound(int);
+type result('a, 'b) = Ok('a) | Error('b);
+
+type updateCharacterResult = result(character, updateCharacterNameError);
+
+let updateCharacterName = (id, name): updateCharacterResult => {
+  switch (getCharacter(id)) {
+  | Some(Human(human)) =>
+    human.name = name;
+    Ok(Human(human));
+  | Some(Droid(droid)) =>
+    droid.name = name;
+    Ok(Droid(droid));
+  | None => Error(CharacterNotFound(id))
+  };
+};
+
 let getFriends = ids => List.map(id => getHuman(id) |> Belt.Option.getExn, ids);

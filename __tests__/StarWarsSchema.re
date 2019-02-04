@@ -118,15 +118,45 @@ let queryType =
     ])
   );
 
+let updateCharacterResponse =
+  Schema.(
+    obj("UpdateCharacterResponse", ~fields=_ =>
+      [
+        field(
+          "character",
+          nullable(characterInterface),
+          ~args=[],
+          ~resolve=(_, updateCharResult: StarWars.updateCharacterResult) =>
+          switch (updateCharResult) {
+          | Ok(Human(human)) => Some(humanAsCharacter(human))
+          | Ok(Droid(droid)) => Some(droidAsCharacter(droid))
+          | _ => None
+          }
+        ),
+        field(
+          "error",
+          nullable(string),
+          ~args=[],
+          ~resolve=(_, updateCharResult: StarWars.updateCharacterResult) =>
+          switch (updateCharResult) {
+          | Error(CharacterNotFound(id)) =>
+            Some("Character with ID " ++ string_of_int(id) ++ " not found")
+          | _ => None
+          }
+        ),
+      ]
+    )
+  );
+
 let mutationType =
   Schema.(
     rootMutation([
       field(
-        "updateCharacter",
-        characterInterface,
-        ~args=Arg.[arg("characterId", int)],
-        ~resolve=(_ctx, (), charId) =>
-        humanAsCharacter(StarWarsData.luke)
+        "updateCharacterName",
+        updateCharacterResponse,
+        ~args=Arg.[arg("characterId", int), arg("name", string)],
+        ~resolve=(_ctx, (), charId, name) =>
+        StarWarsData.updateCharacterName(charId, name)
       ),
     ])
   );
