@@ -67,7 +67,7 @@ module Arg = {
       parse: input =>
         switch (input) {
         | `String(str) => Ok(str)
-        | _ => failwith("Not a string")
+        | _ => Error("Not a string")
         },
     });
 
@@ -78,7 +78,7 @@ module Arg = {
       parse: input =>
         switch (input) {
         | `Int(int) => Ok(int)
-        | _ => failwith("Not an integer")
+        | _ => Error("Not an integer")
         },
     });
 
@@ -89,7 +89,7 @@ module Arg = {
       parse: input =>
         switch (input) {
         | `Float(float) => Ok(float)
-        | _ => failwith("Not a float")
+        | _ => Error("Not a float")
         },
     });
 
@@ -100,7 +100,7 @@ module Arg = {
       parse: input =>
         switch (input) {
         | `Boolean(bool) => Ok(bool)
-        | _ => failwith("Not a boolean")
+        | _ => Error("Not a boolean")
         },
     });
 
@@ -205,21 +205,28 @@ let addType = (abstractType, typ) => {
   };
 };
 
-let rootQuery = (fields): obj('ctx, unit) => {
+let query = (fields): obj('ctx, unit) => {
   name: "Query",
   description: None,
   fields: lazy fields,
   abstracts: ref([]),
 };
 
-let rootMutation = (fields): obj('ctx, unit) => {
+let mutation = (fields): obj('ctx, unit) => {
   name: "Mutation",
   description: None,
   fields: lazy fields,
   abstracts: ref([]),
 };
 
-let create = (~query, ~mutation) => {query, mutation};
+let create =
+    (
+      ~mutation={name: "Mutation", description: None, fields: lazy [], abstracts: ref([])},
+      query,
+    ) => {
+  query,
+  mutation,
+};
 
 /* Built in scalars */
 let string = Scalar({name: "String", description: None, serialize: str => `String(str)});

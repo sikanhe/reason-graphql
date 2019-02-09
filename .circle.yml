@@ -1,0 +1,21 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/node:11.8.0
+
+    environment:
+      TEST_REPORTS: /tmp/test-reports
+
+    working_directory: ~/reason-graphql-server
+
+    steps:
+      - checkout
+
+      - run:
+          name: Install Dependencies
+          command: yarn install --frozen-lockfile
+
+      - run 
+          name: tests
+          commane: yarn test

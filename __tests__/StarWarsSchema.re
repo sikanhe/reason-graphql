@@ -92,9 +92,9 @@ let droidType = Lazy.force(droidTypeLazy);
 let humanAsCharacterInterface = Lazy.force(humanAsCharacterInterface);
 let droidAsCharacterInterface = Lazy.force(droidAsCharacterInterface);
 
-let queryType =
+let query =
   Schema.(
-    rootQuery([
+    query([
       field(
         "hero",
         characterInterface,
@@ -164,9 +164,9 @@ let updateCharacterResponse =
     )
   );
 
-let mutationType =
+let mutation =
   Schema.(
-    rootMutation([
+    mutation([
       field(
         "updateCharacterName",
         updateCharacterResponse,
@@ -177,4 +177,4 @@ let mutationType =
     ])
   );
 
-let schema: Schema.t(unit) = Schema.create(~query=queryType, ~mutation=mutationType);
+let schema: Schema.t(unit) = Schema.create(query, ~mutation);
