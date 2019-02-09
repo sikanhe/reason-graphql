@@ -7,12 +7,20 @@
     "clean": "bsb -clean-world",
     "test": "yarn build && jest"
   },
+  "files": [
+    "src/",
+    "bsconfig.json"
+  ],
   "jest": {
-    "testMatch": ["**/?(*_)(spec|test).bs.js?(x)"]
+    "testMatch": [
+      "**/?(*_)(spec|test).bs.js?(x)"
+    ]
   },
   "keywords": [
     "BuckleScript",
-    "GraphQL"
+    "GraphQL",
+    "Reason",
+    "ReasonML"
   ],
   "author": "Sikan He",
   "license": "MIT",
