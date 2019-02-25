@@ -1,5 +1,14 @@
 module StarWars = StarWarsData;
 
+module Future = {
+  include Future;
+  let return = value;
+  let bind = flatMap;
+  let ok = x => value(Belt.Result.Ok(x));
+};
+
+module Schema = Graphql.Schema.Make(Future);
+
 let episodeEnum =
   Schema.(
     makeEnum(
@@ -49,9 +58,11 @@ and humanTypeLazy =
             ~resolve=(_ctx, human: StarWars.human) =>
             human.StarWars.appearsIn
           ),
-          field(
+          async_field(
             "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
-            StarWars.getFriends(human.friends) |> List.map(asCharacterInterface)
+            StarWars.getFriends(human.friends)
+            ->Future.map(list => Belt.List.map(list, asCharacterInterface))
+            ->Future.map(list => Belt.Result.Ok(list))
           ),
           field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
             human.homePlanet
@@ -79,9 +90,11 @@ and droidTypeLazy =
           field("primaryFunction", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
             droid.primaryFunction
           ),
-          field(
+          async_field(
             "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
-            StarWars.getFriends(droid.friends) |> List.map(asCharacterInterface)
+            StarWars.getFriends(droid.friends)
+            ->Future.map(list => Belt.List.map(list, asCharacterInterface))
+            ->Future.map(list => Belt.Result.Ok(list))
           ),
         ]
       )
@@ -114,22 +127,22 @@ let query =
         | _ => droidAsCharacterInterface(StarWarsData.artoo)
         }
       ),
-      field(
+      async_field(
         "human",
         nullable(humanType),
         ~args=Arg.[arg("id", int)],
         ~resolve=(_ctx, (), argId) => {
           let id = argId;
-          StarWarsData.getHuman(id);
+          StarWarsData.getHuman(id)->Future.map(human => Belt.Result.Ok(human));
         },
       ),
-      field(
+      async_field(
         "droid",
         nullable(droidType),
         ~args=Arg.[arg("id", int)],
         ~resolve=(_ctx, (), argId) => {
           let id = argId;
-          StarWarsData.getDroid(id);
+          StarWarsData.getDroid(id)->Future.map(droid => Belt.Result.Ok(droid));
         },
       ),
     ])
@@ -140,24 +153,24 @@ let updateCharacterResponse =
     obj("UpdateCharacterResponse", ~fields=_ =>
       [
         field(
-          "character",
-          nullable(characterInterface),
-          ~args=[],
-          ~resolve=(_, updateCharResult: StarWars.updateCharacterResult) =>
-          switch (updateCharResult) {
-          | Ok(character) => Some(asCharacterInterface(character))
-          | _ => None
-          }
-        ),
-        field(
           "error",
           nullable(string),
           ~args=[],
           ~resolve=(_, updateCharResult: StarWars.updateCharacterResult) =>
           switch (updateCharResult) {
+          | Ok(_) => None
           | Error(CharacterNotFound(id)) =>
             Some("Character with ID " ++ string_of_int(id) ++ " not found")
-          | _ => None
+          }
+        ),
+        field(
+          "character",
+          nullable(characterInterface),
+          ~args=[],
+          ~resolve=(_, updateCharResult: StarWars.updateCharacterResult) =>
+          switch (updateCharResult) {
+          | Ok(char) => Some(char->asCharacterInterface)
+          | Error(_) => None
           }
         ),
       ]
@@ -167,12 +180,12 @@ let updateCharacterResponse =
 let mutation =
   Schema.(
     mutation([
-      field(
+      async_field(
         "updateCharacterName",
         updateCharacterResponse,
         ~args=Arg.[arg("characterId", int), arg("name", string)],
         ~resolve=(_ctx, (), charId, name) =>
-        StarWarsData.updateCharacterName(charId, name)
+        StarWarsData.updateCharacterName(charId, name)->Future.flatMap(Future.ok)
       ),
     ])
   );

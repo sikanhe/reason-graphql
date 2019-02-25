@@ -1,9 +1,9 @@
 open Jest;
 open Expect;
 open Language;
-let schema = StarWarsSchema.schema;
+module Schema = StarWarsSchema.Schema;
 
-module Io = Schema.Io;
+let schema = StarWarsSchema.schema;
 
 describe("Basic Queries", () => {
   testAsync("Correctly identifies R2-D2 as the hero of the Star Wars Saga", assertion => {
@@ -16,14 +16,14 @@ describe("Basic Queries", () => {
     |};
 
     let expected =
-      Executor.okResponse(`Map([("hero", `Map([("name", `String("R2-D2"))]))]))
-      |> Executor.constValueToJson;
+      Schema.okResponse(`Map([("hero", `Map([("name", `String("R2-D2"))]))]))
+      |> Schema.constValueToJson;
 
     schema
-    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-    |> Executor.resultToJson
-    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
-    |> ignore;
+    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
   });
 
   testAsync("Allows us to query for the ID and friends of R2-D2", assertion => {
@@ -40,7 +40,7 @@ describe("Basic Queries", () => {
     |};
 
     let expected =
-      Executor.okResponse(
+      Schema.okResponse(
         `Map([
           (
             "hero",
@@ -59,13 +59,13 @@ describe("Basic Queries", () => {
           ),
         ]),
       )
-      |> Executor.constValueToJson;
+      |> Schema.constValueToJson;
 
     schema
-    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-    |> Executor.resultToJson
-    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
-    |> ignore;
+    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
   });
 });
 
@@ -87,7 +87,7 @@ describe("Nested Queries", () =>
     |};
 
     let expected =
-      Executor.okResponse(
+      Schema.okResponse(
         `Map([
           (
             "hero",
@@ -149,13 +149,13 @@ describe("Nested Queries", () =>
           ),
         ]),
       )
-      |> Executor.constValueToJson;
+      |> Schema.constValueToJson;
 
     schema
-    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-    |> Executor.resultToJson
-    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
-    |> ignore;
+    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
   })
 );
 
@@ -176,17 +176,17 @@ describe("Mutation operation", () => {
 
   let result =
     schema
-    |> Executor.execute(
+    |> Schema.execute(
          _,
          ~document=Parser.parse(mutation),
          ~ctx=(),
          ~variables=[("id", `Int(1000)), ("name", `String("Sikan Skywalker"))],
        )
-    |> Executor.resultToJson;
+    |> Schema.resultToJson;
 
   testAsync("returns the right data", assertion => {
     let expected =
-      Executor.okResponse(
+      Schema.okResponse(
         `Map([
           (
             "updateCharacterName",
@@ -200,9 +200,9 @@ describe("Mutation operation", () => {
           ),
         ]),
       )
-      |> Executor.constValueToJson;
+      |> Schema.constValueToJson;
 
-    Schema.Io.map(result, res => assertion(expect(res) |> toEqual(expected))) |> ignore;
+    Schema.Io.map(result, res => assertion(expect(res) |> toEqual(expected)))->ignore;
   });
 });
 
@@ -219,14 +219,14 @@ describe("Using aliases to change the key in the response", () => {
     |};
 
     let expected =
-      Executor.okResponse(`Map([("luke", `Map([("name", `String("Luke Skywalker"))]))]))
-      |> Executor.constValueToJson;
+      Schema.okResponse(`Map([("luke", `Map([("name", `String("Luke Skywalker"))]))]))
+      |> Schema.constValueToJson;
 
     schema
-    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-    |> Executor.resultToJson
-    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
-    |> ignore;
+    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
   });
 
   testAsync(
@@ -243,19 +243,19 @@ describe("Using aliases to change the key in the response", () => {
     |};
 
     let expected =
-      Executor.okResponse(
+      Schema.okResponse(
         `Map([
           ("luke", `Map([("name", `String("Luke Skywalker"))])),
           ("leia", `Map([("name", `String("Leia Organa"))])),
         ]),
       )
-      |> Executor.constValueToJson;
+      |> Schema.constValueToJson;
 
     schema
-    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-    |> Executor.resultToJson
-    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
-    |> ignore;
+    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
   });
 });
 
@@ -277,7 +277,7 @@ describe("Uses fragments to express more complex queries", () => {
     |};
 
     let expected =
-      Executor.okResponse(
+      Schema.okResponse(
         `Map([
           (
             "luke",
@@ -289,13 +289,13 @@ describe("Uses fragments to express more complex queries", () => {
           ),
         ]),
       )
-      |> Executor.constValueToJson;
+      |> Schema.constValueToJson;
 
     schema
-    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-    |> Executor.resultToJson
-    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
-    |> ignore;
+    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
   });
 
   testAsync("Allows us to use a fragment to avoid duplicating content", assertion => {
@@ -318,7 +318,7 @@ describe("Uses fragments to express more complex queries", () => {
     let schema = StarWarsSchema.schema;
 
     let expected =
-      Executor.okResponse(
+      Schema.okResponse(
         `Map([
           (
             "luke",
@@ -330,12 +330,12 @@ describe("Uses fragments to express more complex queries", () => {
           ),
         ]),
       )
-      |> Executor.constValueToJson;
+      |> Schema.constValueToJson;
 
     schema
-    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-    |> Executor.resultToJson
-    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
-    |> ignore;
+    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
   });
 });

@@ -71,30 +71,46 @@ let artoo = {
   primaryFunction: "Astromech",
 };
 
-let getHuman = id => Belt.List.getBy([luke, han, leia, vader], human => human.id == id);
-let getDroid = id => Belt.List.getBy([threepio, artoo], droid => droid.id == id);
+let getHuman = id =>
+  Future.value(Belt.List.getBy([luke, han, leia, vader], human => human.id == id));
+let getDroid = id => Future.value(Belt.List.getBy([threepio, artoo], droid => droid.id == id));
 let getCharacter = id => {
-  switch (getHuman(id)) {
-  | Some(human) => Some(Human(human))
-  | None =>
-    switch (getDroid(id)) {
-    | Some(droid) => Some(Droid(droid))
-    | None => None
-    }
-  };
+  getHuman(id)
+  ->Future.flatMap(
+      fun
+      | Some(human) => Future.value(Some(Human(human)))
+      | None => {
+          getDroid(id)
+          ->Future.map(
+              fun
+              | Some(droid) => Some(Droid(droid))
+              | None => None,
+            );
+        },
+    );
 };
-
 type updateCharacterNameError =
   | CharacterNotFound(int);
 
 type updateCharacterResult = Belt.Result.t(character, updateCharacterNameError);
 
-let updateCharacterName = (id, name): updateCharacterResult => {
-  switch (getCharacter(id)) {
-  | Some(Human(human)) => Ok(Human({...human, name}))
-  | Some(Droid(droid)) => Ok(Droid({...droid, name}))
-  | None => Error(CharacterNotFound(id))
-  };
+let updateCharacterName = (id, name): Future.t(updateCharacterResult) => {
+  getCharacter(id)
+  ->Future.map(
+      fun
+      | Some(Human(human)) => Belt.Result.Ok(Human({...human, name}))
+      | Some(Droid(droid)) => Belt.Result.Ok(Droid({...droid, name}))
+      | None => Belt.Result.Error(CharacterNotFound(id)),
+    );
 };
 
-let getFriends = ids => List.map(id => getCharacter(id) |> Belt.Option.getExn, ids);
+let rec futureAll = fun 
+    | [] => Future.value([])
+    | [x, ...xs] => Future.flatMap(futureAll(xs), xs' => Future.map(x, x' => [x', ...xs']));
+
+let getFriends = ids => {
+  Belt.List.map(ids, id => {
+    id -> getCharacter -> Future.map(Belt.Option.getExn)
+  })
+  |> futureAll
+};
