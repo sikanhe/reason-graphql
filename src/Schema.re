@@ -1,13 +1,17 @@
-module Result = {
-  include Belt.Result;
+module List = {
+  include Belt.List;
+  
+  module Result = {
+    include Belt.Result;
 
-  let rec join = (~memo=[]) =>
-    fun
-    | [] => Ok(Belt.List.reverse(memo))
-    | [Error(_) as err, ..._] => err
-    | [Ok(x), ...xs] => join(~memo=[x, ...memo], xs);
+    let rec join = (~memo=[]) =>
+      fun
+      | [] => Ok(Belt.List.reverse(memo))
+      | [Error(_) as err, ..._] => err
+      | [Ok(x), ...xs] => join(~memo=[x, ...memo], xs);
 
-  let all = (list, f) => Belt.List.map(list, f) |> join;
+    let all = (list, f) => Belt.List.map(list, f) |> join;
+  };
 };
 
 module StringMap = {
@@ -19,6 +23,8 @@ module StringMap = {
     | Not_found => raise(MissingKey(key))
     };
 };
+
+module Result = Belt.Result;
 
 type variableList = list((string, Language.Ast.constValue));
 type variableMap = StringMap.t(Language.Ast.constValue);
@@ -528,7 +534,7 @@ module Make = (Io: IO) => {
           switch (value) {
           | `List(values) =>
             let option_values = Belt.List.map(values, x => Some(x));
-            Result.all(
+            List.Result.all(
               option_values,
               evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ),
             );
@@ -582,8 +588,8 @@ module Make = (Io: IO) => {
           | Language.Ast.InlineFragment(inlineFragment) =>
             collectFields(fragmentMap, obj, inlineFragment.selectionSet),
         )
-      ->Result.join
-      ->Result.map(Belt.List.flatten);
+      ->List.Result.join
+      ->List.Result.map(Belt.List.flatten);
 
   let fieldName: Language.Ast.field => string =
     fun
@@ -619,7 +625,7 @@ module Make = (Io: IO) => {
       | List(typ') =>
         Belt.List.map(src, srcItem => resolveValue(executionContext, srcItem, field, typ'))
         ->Io.all
-        ->Io.map(Result.join)
+        ->Io.map(List.Result.join)
         ->Io.Result.map(list => `List(list))
       | Abstract(_) =>
         let AbstractValue((typ', src')) = src;
@@ -675,7 +681,7 @@ module Make = (Io: IO) => {
           Io.error(`ValidationError(err));
         }
       )
-      ->Io.map(Result.join)
+      ->Io.map(List.Result.join)
       ->Io.Result.map(assocList => `Map(assocList));
     };
 

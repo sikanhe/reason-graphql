@@ -1,6 +1,7 @@
 open Jest;
 open Expect;
 open Language;
+
 module Schema = StarWarsSchema.Schema;
 
 let schema = StarWarsSchema.schema;

@@ -2,14 +2,12 @@ open Belt.Result;
 
 module StarWars = StarWarsData;
 
+module Schema = GraphqlFuture.Schema;
+
 module Future = {
   include Future;
-  let return = value;
-  let bind = flatMap;
-  let ok = x => value(Ok(x));
+  let ok = x => value(Belt.Result.Ok(x));
 };
-
-module Schema = Graphql.Schema.Make(Future);
 
 let episodeEnum =
   Schema.(
