@@ -1,10 +1,12 @@
+open Belt.Result;
+
 module StarWars = StarWarsData;
 
 module Future = {
   include Future;
   let return = value;
   let bind = flatMap;
-  let ok = x => value(Belt.Result.Ok(x));
+  let ok = x => value(Ok(x));
 };
 
 module Schema = Graphql.Schema.Make(Future);
@@ -62,7 +64,7 @@ and humanTypeLazy =
             "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
             StarWars.getFriends(human.friends)
             ->Future.map(list => Belt.List.map(list, asCharacterInterface))
-            ->Future.map(list => Belt.Result.Ok(list))
+            ->Future.map(list => Ok(list))
           ),
           field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
             human.homePlanet
@@ -94,7 +96,7 @@ and droidTypeLazy =
             "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
             StarWars.getFriends(droid.friends)
             ->Future.map(list => Belt.List.map(list, asCharacterInterface))
-            ->Future.map(list => Belt.Result.Ok(list))
+            ->Future.map(list => Ok(list))
           ),
         ]
       )
@@ -133,7 +135,7 @@ let query =
         ~args=Arg.[arg("id", int)],
         ~resolve=(_ctx, (), argId) => {
           let id = argId;
-          StarWarsData.getHuman(id)->Future.map(human => Belt.Result.Ok(human));
+          StarWarsData.getHuman(id)->Future.map(human => Ok(human));
         },
       ),
       async_field(
@@ -142,7 +144,7 @@ let query =
         ~args=Arg.[arg("id", int)],
         ~resolve=(_ctx, (), argId) => {
           let id = argId;
-          StarWarsData.getDroid(id)->Future.map(droid => Belt.Result.Ok(droid));
+          StarWarsData.getDroid(id)->Future.map(droid => Ok(droid));
         },
       ),
     ])
