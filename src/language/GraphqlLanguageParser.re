@@ -1,5 +1,5 @@
-open Language_Ast;
-module Lexer = Language_Lexer;
+open GraphqlLanguageAst;
+module Lexer = GraphqlLanguageLexer;
 
 /**
  * If the next token is of the given kind, return that token after advancing
