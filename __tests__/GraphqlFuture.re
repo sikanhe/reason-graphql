@@ -5,4 +5,4 @@ module Future = {
   let ok = x => value(Belt.Result.Ok(x));
 };
 
-module Schema = Schema.Make(Future);
+module Schema = GraphqlSchema.Make(Future);

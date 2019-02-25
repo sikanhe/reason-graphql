@@ -1,6 +1,8 @@
+open GraphqlLanguage;
+
 module List = {
   include Belt.List;
-  
+
   module Result = {
     include Belt.Result;
 
@@ -26,9 +28,9 @@ module StringMap = {
 
 module Result = Belt.Result;
 
-type variableList = list((string, Language.Ast.constValue));
-type variableMap = StringMap.t(Language.Ast.constValue);
-type fragmentMap = StringMap.t(Language.Ast.fragmentDefinition);
+type variableList = list((string, Ast.constValue));
+type variableMap = StringMap.t(Ast.constValue);
+type fragmentMap = StringMap.t(Ast.fragmentDefinition);
 
 type deprecation =
   | NotDeprecated
@@ -118,7 +120,7 @@ module Make = (Io: IO) => {
     and scalar('a) = {
       name: string,
       description: option(string),
-      parse: Language.Ast.constValue => Result.t('a, string),
+      parse: Ast.constValue => Result.t('a, string),
     }
     and inputObject('a, 'b) = {
       name: string,
@@ -207,7 +209,7 @@ module Make = (Io: IO) => {
   and scalar('src) = {
     name: string,
     description: option(string),
-    serialize: 'src => Language.Ast.constValue,
+    serialize: 'src => Ast.constValue,
   }
   and obj('ctx, 'src) = {
     name: string,
@@ -333,7 +335,7 @@ module Make = (Io: IO) => {
 
   type executionContext('ctx) = {
     schema: t('ctx),
-    operation: Language.Ast.operationDefinition,
+    operation: Ast.operationDefinition,
     fragmentMap,
     variableMap,
     ctx: 'ctx,
@@ -357,12 +359,12 @@ module Make = (Io: IO) => {
     | `Operation_not_found
   ];
 
-  type executionResult = {data: Language.Ast.constValue};
+  type executionResult = {data: Ast.constValue};
 
   module ArgEval = {
     open Arg;
 
-    let rec valueToConstValue: (variableMap, Language.Ast.value) => Language.Ast.constValue =
+    let rec valueToConstValue: (variableMap, Ast.value) => Ast.constValue =
       variableMap =>
         fun
         | `Null => `Null
@@ -381,7 +383,7 @@ module Make = (Io: IO) => {
             `Map(props');
           };
 
-    let rec stringOfConstValue: Language.Ast.constValue => string = (
+    let rec stringOfConstValue: Ast.constValue => string = (
       fun
       | `Null => "null"
       | `Int(i) => string_of_int(i)
@@ -399,7 +401,7 @@ module Make = (Io: IO) => {
 
           Printf.sprintf("{%s}", String.concat(", ", values));
         }:
-        Language.Ast.constValue => string
+        Ast.constValue => string
     );
 
     let rec stringOfArgType: type a. argType(a) => string =
@@ -439,7 +441,7 @@ module Make = (Io: IO) => {
           ~fieldType: string=?,
           ~fieldName: string,
           arglist(a, b),
-          list((string, Language.Ast.value)),
+          list((string, Ast.value)),
           b
         ) =>
         Result.t(a, string) =
@@ -499,7 +501,7 @@ module Make = (Io: IO) => {
           ~fieldName: string,
           ~argName: string,
           argType(a),
-          option(Language.Ast.constValue)
+          option(Ast.constValue)
         ) =>
         Result.t(a, string) =
       (variableMap, ~fieldType=?, ~fieldName, ~argName, typ, value) =>
@@ -519,13 +521,13 @@ module Make = (Io: IO) => {
           }
         | (InputObject(o), Some(value)) =>
           switch (value) {
-          | `Map((props: list((string, Language.Ast.constValue)))) =>
+          | `Map((props: list((string, Ast.constValue)))) =>
             evalArgList(
               variableMap,
               ~fieldType?,
               ~fieldName,
               o.fields,
-              (props :> list((string, Language.Ast.value))),
+              (props :> list((string, Ast.value))),
               o.coerce,
             )
           | _ => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, Some(value)))
@@ -572,26 +574,25 @@ module Make = (Io: IO) => {
     || Belt.List.some(obj.abstracts^, abstract => abstract.name == typeCondition);
 
   let rec collectFields:
-    (fragmentMap, obj('ctx, 'src), list(Language.Ast.selection)) =>
-    Result.t(list(Language.Ast.field), string) =
+    (fragmentMap, obj('ctx, 'src), list(Ast.selection)) => Result.t(list(Ast.field), string) =
     (fragmentMap, obj, selectionSet) =>
       selectionSet
       ->Belt.List.map(
           fun
-          | Language.Ast.Field(field) => Ok([field])
-          | Language.Ast.FragmentSpread(fragmentSpread) =>
+          | Ast.Field(field) => Ok([field])
+          | Ast.FragmentSpread(fragmentSpread) =>
             switch (StringMap.get(fragmentMap, fragmentSpread.name)) {
             | Some({typeCondition, selectionSet}) when matchesTypeCondition(typeCondition, obj) =>
               collectFields(fragmentMap, obj, selectionSet)
             | _ => Ok([])
             }
-          | Language.Ast.InlineFragment(inlineFragment) =>
+          | Ast.InlineFragment(inlineFragment) =>
             collectFields(fragmentMap, obj, inlineFragment.selectionSet),
         )
       ->List.Result.join
       ->List.Result.map(Belt.List.flatten);
 
-  let fieldName: Language.Ast.field => string =
+  let fieldName: Ast.field => string =
     fun
     | {alias: Some(alias)} => alias
     | field => field.name;
@@ -602,8 +603,8 @@ module Make = (Io: IO) => {
 
   let rec resolveValue:
     type ctx src.
-      (executionContext(ctx), src, Language.Ast.field, typ(ctx, src)) =>
-      Io.t(Result.t(Language.Ast.constValue, [> resolveError])) =
+      (executionContext(ctx), src, Ast.field, typ(ctx, src)) =>
+      Io.t(Result.t(Ast.constValue, [> resolveError])) =
     (executionContext, src, field, typ) =>
       switch (typ) {
       | Nullable(typ') =>
@@ -634,8 +635,8 @@ module Make = (Io: IO) => {
 
   and resolveField:
     type ctx src.
-      (executionContext(ctx), src, Language.Ast.field, field(ctx, src)) =>
-      Io.t(Result.t((string, Language.Ast.constValue), [> resolveError])) =
+      (executionContext(ctx), src, Ast.field, field(ctx, src)) =>
+      Io.t(Result.t((string, Ast.constValue), [> resolveError])) =
     (executionContext, src, field, Field(fieldDef)) => {
       let name = fieldName(field);
       let resolver = fieldDef.resolve(executionContext.ctx, src);
@@ -669,8 +670,8 @@ module Make = (Io: IO) => {
 
   and resolveFields:
     type ctx src.
-      (executionContext(ctx), src, obj(ctx, src), list(Language.Ast.field)) =>
-      Io.t(Result.t(Language.Ast.constValue, [> resolveError])) =
+      (executionContext(ctx), src, obj(ctx, src), list(Ast.field)) =>
+      Io.t(Result.t(Ast.constValue, [> resolveError])) =
     (executionContext, src, obj, fields) => {
       Io.mapP(fields, field =>
         switch (getObjField(field.name, obj)) {
@@ -686,8 +687,8 @@ module Make = (Io: IO) => {
     };
 
   let executeOperation =
-      (executionContext: executionContext('ctx), operation: Language.Ast.operationDefinition)
-      : Io.t(Result.t(Language.Ast.constValue, [> executeError])) =>
+      (executionContext: executionContext('ctx), operation: Ast.operationDefinition)
+      : Io.t(Result.t(Ast.constValue, [> executeError])) =>
     switch (operation.operationType) {
     | Query =>
       /* TODO: Make parallell */
@@ -703,8 +704,8 @@ module Make = (Io: IO) => {
       >>=? (
         fields => (
           resolveFields(executionContext, (), executionContext.schema.query, fields):
-            Io.t(Result.t(Language.Ast.constValue, resolveError)) :>
-            Io.t(Result.t(Language.Ast.constValue, [> executeError]))
+            Io.t(Result.t(Ast.constValue, resolveError)) :>
+            Io.t(Result.t(Ast.constValue, [> executeError]))
         )
       )
     | Mutation =>
@@ -720,26 +721,25 @@ module Make = (Io: IO) => {
       >>=? (
         fields => (
           resolveFields(executionContext, (), executionContext.schema.mutation, fields):
-            Io.t(Result.t(Language.Ast.constValue, resolveError)) :>
-            Io.t(Result.t(Language.Ast.constValue, [> executeError]))
+            Io.t(Result.t(Ast.constValue, resolveError)) :>
+            Io.t(Result.t(Ast.constValue, [> executeError]))
         )
       )
     | _ => failwith("Subscription Not implemented")
     };
 
-  let collectOperations = (document: Language.Ast.document) =>
+  let collectOperations = (document: Ast.document) =>
     Belt.List.reduceReverse(document.definitions, [], (list, x) =>
       switch (x) {
-      | Language.Ast.OperationDefinition(operation) => [operation, ...list]
+      | Ast.OperationDefinition(operation) => [operation, ...list]
       | _ => list
       }
     );
 
-  let collectFragments = (document: Language.Ast.document) => {
+  let collectFragments = (document: Ast.document) => {
     Belt.List.reduceReverse(document.definitions, StringMap.empty, (fragmentMap, x) =>
       switch (x) {
-      | Language.Ast.FragmentDefinition(fragment) =>
-        StringMap.set(fragmentMap, fragment.name, fragment)
+      | Ast.FragmentDefinition(fragment) => StringMap.set(fragmentMap, fragment.name, fragment)
       | _ => fragmentMap
       }
     );
@@ -749,7 +749,7 @@ module Make = (Io: IO) => {
     `Map([("data", data)]);
   };
 
-  let errorResponse = (~path=?, msg): Language.Ast.constValue => {
+  let errorResponse = (~path=?, msg): Ast.constValue => {
     let path' =
       switch (path) {
       | Some(path) => path
@@ -770,12 +770,7 @@ module Make = (Io: IO) => {
   };
 
   let execute =
-      (
-        ~variables: variableList=[],
-        ~document: Language.Ast.document,
-        schema: t('ctx),
-        ~ctx: 'ctx,
-      ) => {
+      (~variables: variableList=[], ~document: Ast.document, schema: t('ctx), ~ctx: 'ctx) => {
     let operations = collectOperations(document);
     let fragmentMap = collectFragments(document);
 
@@ -809,7 +804,7 @@ module Make = (Io: IO) => {
     );
   };
 
-  let rec constValueToJson: Language.Ast.constValue => Js.Json.t =
+  let rec constValueToJson: Ast.constValue => Js.Json.t =
     fun
     | `String(string)
     | `Enum(string) => Js.Json.string(string)
@@ -832,6 +827,6 @@ module Make = (Io: IO) => {
       }
     | `Null => Js.Json.null;
 
-  let resultToJson: Io.t(Language.Ast.constValue) => Io.t(Js.Json.t) =
+  let resultToJson: Io.t(Ast.constValue) => Io.t(Js.Json.t) =
     result => Io.map(result, constValueToJson);
 };
