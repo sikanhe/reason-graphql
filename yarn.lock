@@ -2814,6 +2814,11 @@ realpath-native@^1.0.0:
   dependencies:
     util.promisify "^1.0.0"
 
+reason-future@^2.4.0:
+  version "2.4.0"
+  resolved "https://registry.yarnpkg.com/reason-future/-/reason-future-2.4.0.tgz#3918945a943a6abbb67bc62e90af6a65a0f079ae"
+  integrity sha512-QtWvUqzfPTxZpB4sWjAS3bFqCB76Lsxm6ekd99LF8iXkLqx2Xg+b9wyobW/KoXMrq48B//hvW3Dh3vhIYlpXHQ==
+
 regenerator-runtime@^0.11.0:
   version "0.11.1"
   resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.11.1.tgz#be05ad7f9bf7d22e056f9726cee5017fbf19e2e9"

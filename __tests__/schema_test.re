@@ -3,8 +3,10 @@ open Expect;
 open Language;
 let schema = StarWarsSchema.schema;
 
+module Io = Schema.Io;
+
 describe("Basic Queries", () => {
-  test("Correctly identifies R2-D2 as the hero of the Star Wars Saga", () => {
+  testAsync("Correctly identifies R2-D2 as the hero of the Star Wars Saga", assertion => {
     let query = {|
       query HeroNameQuery {
         hero {
@@ -13,17 +15,18 @@ describe("Basic Queries", () => {
       }
     |};
 
-    let result =
-      schema
-      |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-      |> Executor.resultToJson;
+    let expected =
+      Executor.okResponse(`Map([("hero", `Map([("name", `String("R2-D2"))]))]))
+      |> Executor.constValueToJson;
 
-    let expected = Executor.{data: `Map([("hero", `Map([("name", `String("R2-D2"))]))])};
-
-    expect(result) |> toEqual(expected->Executor.resultToJson);
+    schema
+    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Executor.resultToJson
+    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
+    |> ignore;
   });
 
-  test("Allows us to query for the ID and friends of R2-D2", () => {
+  testAsync("Allows us to query for the ID and friends of R2-D2", assertion => {
     let query = {|
         query HeroNameAndFriendsQuery {
           hero {
@@ -36,39 +39,38 @@ describe("Basic Queries", () => {
         }
     |};
 
-    let result =
-      schema
-      |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-      |> Executor.resultToJson;
-
     let expected =
-      Executor.{
-        data:
-          `Map([
-            (
-              "hero",
-              `Map([
-                ("id", `Int(2001)),
-                ("name", `String("R2-D2")),
-                (
-                  "friends",
-                  `List([
-                    `Map([("name", `String("Luke Skywalker"))]),
-                    `Map([("name", `String("Han Solo"))]),
-                    `Map([("name", `String("Leia Organa"))]),
-                  ]),
-                ),
-              ]),
-            ),
-          ]),
-      };
+      Executor.okResponse(
+        `Map([
+          (
+            "hero",
+            `Map([
+              ("id", `Int(2001)),
+              ("name", `String("R2-D2")),
+              (
+                "friends",
+                `List([
+                  `Map([("name", `String("Luke Skywalker"))]),
+                  `Map([("name", `String("Han Solo"))]),
+                  `Map([("name", `String("Leia Organa"))]),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      )
+      |> Executor.constValueToJson;
 
-    expect(result) |> toEqual(expected->Executor.resultToJson);
+    schema
+    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Executor.resultToJson
+    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
+    |> ignore;
   });
 });
 
 describe("Nested Queries", () =>
-  test("Allows us to query for the friends of friends of R2-D2", () => {
+  testAsync("Allows us to query for the friends of friends of R2-D2", assertion => {
     let query = {|
       query NestedQuery {
         hero {
@@ -84,77 +86,76 @@ describe("Nested Queries", () =>
       }
     |};
 
-    let result =
-      schema
-      |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-      |> Executor.resultToJson;
-
     let expected =
-      Executor.{
-        data:
-          `Map([
-            (
-              "hero",
-              `Map([
-                ("name", `String("R2-D2")),
-                (
-                  "friends",
-                  `List([
-                    `Map([
-                      ("name", `String("Luke Skywalker")),
-                      (
-                        "appearsIn",
-                        `List([`String("NEWHOPE"), `String("EMPIRE"), `String("JEDI")]),
-                      ),
-                      (
-                        "friends",
-                        `List([
-                          `Map([("name", `String("Han Solo"))]),
-                          `Map([("name", `String("Leia Organa"))]),
-                          `Map([("name", `String("C-3PO"))]),
-                          `Map([("name", `String("R2-D2"))]),
-                        ]),
-                      ),
-                    ]),
-                    `Map([
-                      ("name", `String("Han Solo")),
-                      (
-                        "appearsIn",
-                        `List([`String("NEWHOPE"), `String("EMPIRE"), `String("JEDI")]),
-                      ),
-                      (
-                        "friends",
-                        `List([
-                          `Map([("name", `String("Luke Skywalker"))]),
-                          `Map([("name", `String("Leia Organa"))]),
-                          `Map([("name", `String("R2-D2"))]),
-                        ]),
-                      ),
-                    ]),
-                    `Map([
-                      ("name", `String("Leia Organa")),
-                      (
-                        "appearsIn",
-                        `List([`String("NEWHOPE"), `String("EMPIRE"), `String("JEDI")]),
-                      ),
-                      (
-                        "friends",
-                        `List([
-                          `Map([("name", `String("Luke Skywalker"))]),
-                          `Map([("name", `String("Han Solo"))]),
-                          `Map([("name", `String("C-3PO"))]),
-                          `Map([("name", `String("R2-D2"))]),
-                        ]),
-                      ),
-                    ]),
+      Executor.okResponse(
+        `Map([
+          (
+            "hero",
+            `Map([
+              ("name", `String("R2-D2")),
+              (
+                "friends",
+                `List([
+                  `Map([
+                    ("name", `String("Luke Skywalker")),
+                    (
+                      "appearsIn",
+                      `List([`String("NEWHOPE"), `String("EMPIRE"), `String("JEDI")]),
+                    ),
+                    (
+                      "friends",
+                      `List([
+                        `Map([("name", `String("Han Solo"))]),
+                        `Map([("name", `String("Leia Organa"))]),
+                        `Map([("name", `String("C-3PO"))]),
+                        `Map([("name", `String("R2-D2"))]),
+                      ]),
+                    ),
                   ]),
-                ),
-              ]),
-            ),
-          ]),
-      };
+                  `Map([
+                    ("name", `String("Han Solo")),
+                    (
+                      "appearsIn",
+                      `List([`String("NEWHOPE"), `String("EMPIRE"), `String("JEDI")]),
+                    ),
+                    (
+                      "friends",
+                      `List([
+                        `Map([("name", `String("Luke Skywalker"))]),
+                        `Map([("name", `String("Leia Organa"))]),
+                        `Map([("name", `String("R2-D2"))]),
+                      ]),
+                    ),
+                  ]),
+                  `Map([
+                    ("name", `String("Leia Organa")),
+                    (
+                      "appearsIn",
+                      `List([`String("NEWHOPE"), `String("EMPIRE"), `String("JEDI")]),
+                    ),
+                    (
+                      "friends",
+                      `List([
+                        `Map([("name", `String("Luke Skywalker"))]),
+                        `Map([("name", `String("Han Solo"))]),
+                        `Map([("name", `String("C-3PO"))]),
+                        `Map([("name", `String("R2-D2"))]),
+                      ]),
+                    ),
+                  ]),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      )
+      |> Executor.constValueToJson;
 
-    expect(result) |> toEqual(expected->Executor.resultToJson);
+    schema
+    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Executor.resultToJson
+    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
+    |> ignore;
   })
 );
 
@@ -183,32 +184,32 @@ describe("Mutation operation", () => {
        )
     |> Executor.resultToJson;
 
-  test("returns the right data", () => {
+  testAsync("returns the right data", assertion => {
     let expected =
-      Executor.{
-        data:
-          `Map([
-            (
-              "updateCharacterName",
-              `Map([
-                (
-                  "character",
-                  `Map([("id", `Int(1000)), ("name", `String("Sikan Skywalker"))]),
-                ),
-                ("error", `Null),
-              ]),
-            ),
-          ]),
-      };
+      Executor.okResponse(
+        `Map([
+          (
+            "updateCharacterName",
+            `Map([
+              (
+                "character",
+                `Map([("id", `Int(1000)), ("name", `String("Sikan Skywalker"))]),
+              ),
+              ("error", `Null),
+            ]),
+          ),
+        ]),
+      )
+      |> Executor.constValueToJson;
 
-    expect(result) |> toEqual(expected->Executor.resultToJson);
+    Schema.Io.map(result, res => assertion(expect(res) |> toEqual(expected))) |> ignore;
   });
 });
 
 describe("Using aliases to change the key in the response", () => {
   open Expect;
 
-  test("Allows us to query for Luke, changing his key with an alias", () => {
+  testAsync("Allows us to query for Luke, changing his key with an alias", assertion => {
     let query = {|
       query FetchLukeAliased {
         luke: human(id: 1000) {
@@ -217,18 +218,19 @@ describe("Using aliases to change the key in the response", () => {
       }
     |};
 
-    let result =
-      schema
-      |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-      |> Executor.resultToJson;
-
     let expected =
-      Executor.{data: `Map([("luke", `Map([("name", `String("Luke Skywalker"))]))])};
+      Executor.okResponse(`Map([("luke", `Map([("name", `String("Luke Skywalker"))]))]))
+      |> Executor.constValueToJson;
 
-    expect(result) |> toEqual(expected->Executor.resultToJson);
+    schema
+    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Executor.resultToJson
+    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
+    |> ignore;
   });
 
-  test("Allows us to query for both Luke and Leia, using two root fields and an alias", () => {
+  testAsync(
+    "Allows us to query for both Luke and Leia, using two root fields and an alias", assertion => {
     let query = {|
       query FetchLukeAndLeiaAliased {
         luke: human(id: 1000) {
@@ -240,28 +242,27 @@ describe("Using aliases to change the key in the response", () => {
       }
     |};
 
-    let result =
-      schema
-      |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-      |> Executor.resultToJson;
-
     let expected =
-      Executor.{
-        data:
-          `Map([
-            ("luke", `Map([("name", `String("Luke Skywalker"))])),
-            ("leia", `Map([("name", `String("Leia Organa"))])),
-          ]),
-      };
+      Executor.okResponse(
+        `Map([
+          ("luke", `Map([("name", `String("Luke Skywalker"))])),
+          ("leia", `Map([("name", `String("Leia Organa"))])),
+        ]),
+      )
+      |> Executor.constValueToJson;
 
-    expect(result) |> toEqual(expected->Executor.resultToJson);
+    schema
+    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Executor.resultToJson
+    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
+    |> ignore;
   });
 });
 
 describe("Uses fragments to express more complex queries", () => {
   open Expect;
 
-  test("Allows us to query using duplicated content", () => {
+  testAsync("Allows us to query using duplicated content", assertion => {
     let query = {|
       query DuplicateFields {
         luke: human(id: 1000) {
@@ -275,33 +276,29 @@ describe("Uses fragments to express more complex queries", () => {
       }
     |};
 
-    let result =
-      schema
-      |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-      |> Executor.resultToJson;
-
     let expected =
-      Executor.{
-        data:
-          `Map([
-            (
-              "luke",
-              `Map([
-                ("name", `String("Luke Skywalker")),
-                ("homePlanet", `String("Tatooine")),
-              ]),
-            ),
-            (
-              "leia",
-              `Map([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
-            ),
-          ]),
-      };
+      Executor.okResponse(
+        `Map([
+          (
+            "luke",
+            `Map([("name", `String("Luke Skywalker")), ("homePlanet", `String("Tatooine"))]),
+          ),
+          (
+            "leia",
+            `Map([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
+          ),
+        ]),
+      )
+      |> Executor.constValueToJson;
 
-    expect(result) |> toEqual(expected->Executor.resultToJson);
+    schema
+    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Executor.resultToJson
+    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
+    |> ignore;
   });
 
-  test("Allows us to use a fragment to avoid duplicating content", () => {
+  testAsync("Allows us to use a fragment to avoid duplicating content", assertion => {
     let query = {|
     query UseFragment {
       luke: human(id: 1000) {
@@ -320,29 +317,25 @@ describe("Uses fragments to express more complex queries", () => {
 
     let schema = StarWarsSchema.schema;
 
-    let result =
-      schema
-      |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
-      |> Executor.resultToJson;
-
     let expected =
-      Executor.{
-        data:
-          `Map([
-            (
-              "luke",
-              `Map([
-                ("name", `String("Luke Skywalker")),
-                ("homePlanet", `String("Tatooine")),
-              ]),
-            ),
-            (
-              "leia",
-              `Map([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
-            ),
-          ]),
-      };
+      Executor.okResponse(
+        `Map([
+          (
+            "luke",
+            `Map([("name", `String("Luke Skywalker")), ("homePlanet", `String("Tatooine"))]),
+          ),
+          (
+            "leia",
+            `Map([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
+          ),
+        ]),
+      )
+      |> Executor.constValueToJson;
 
-    expect(result) |> toEqual(expected->Executor.resultToJson);
+    schema
+    |> Executor.execute(_, ~document=Parser.parse(query), ~ctx=())
+    |> Executor.resultToJson
+    |> Schema.Io.map(_, res => assertion(expect(res) |> toEqual(expected)))
+    |> ignore;
   });
 });

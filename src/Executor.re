@@ -1,11 +1,6 @@
 module Result = {
   include Belt.Result;
 
-  module Operators = {
-    let (>>=) = Belt.Result.flatMap;
-    let (>>|) = Belt.Result.map;
-  };
-
   let rec join = (~memo=[]) =>
     fun
     | [] => Ok(Belt.List.reverse(memo))
@@ -30,6 +25,8 @@ module StringMap = {
     };
 };
 
+module Io = Schema.Io;
+
 type variableList = list((string, Language.Ast.constValue));
 type variableMap = StringMap.t(Language.Ast.constValue);
 type fragmentMap = StringMap.t(Language.Ast.fragmentDefinition);
@@ -42,13 +39,28 @@ type executionContext('ctx) = {
   ctx: 'ctx,
 };
 
-exception ResolveError(string);
+type result('a, 'b) = Schema.result('a, 'b);
+type path = list(string);
+type error = (string, path);
 
-type executionErorr =
-  | OperationNotFound;
+type resolveError = [
+  | `ResolveError(error)
+  | `ArgumentError(string)
+  | `ValidationError(string)
+];
+
+type executeError = [
+  resolveError
+  | `Mutations_not_configured
+  | `Subscriptions_not_configured
+  | `No_operation_found
+  | `Operation_name_required
+  | `Operation_not_found
+];
+
 type executionResult = {data: Language.Ast.constValue};
 
-open Result.Operators;
+open Schema.Io.Infix;
 
 module Arg = {
   open Schema.Arg;
@@ -133,7 +145,7 @@ module Arg = {
         list((string, Language.Ast.value)),
         b
       ) =>
-      Belt.Result.t(a, string) =
+      Result.t(a, string) =
     (variableMap, ~fieldType=?, ~fieldName, arglist, key_values, f) =>
       switch (arglist) {
       | [] => Ok(f)
@@ -159,8 +171,7 @@ module Arg = {
             let value = Belt.List.getAssoc(key_values, arg.name, (==));
             let constValue = Belt.Option.map(value, valueToConstValue(variableMap));
             evalArg(variableMap, ~fieldType?, ~fieldName, ~argName=arg.name, arg.typ, constValue)
-            >>= (
-              coerced =>
+            ->Belt.Result.flatMap(coerced =>
                 evalArgList(
                   variableMap,
                   ~fieldType?,
@@ -169,7 +180,7 @@ module Arg = {
                   key_values,
                   f(coerced),
                 )
-            );
+              );
           }
         ) {
         | StringMap.MissingKey(key) => Error(Format.sprintf("Missing variable `%s`", key))
@@ -186,7 +197,7 @@ module Arg = {
         argType(a),
         option(Language.Ast.constValue)
       ) =>
-      Belt.Result.t(a, string) =
+      Result.t(a, string) =
     (variableMap, ~fieldType=?, ~fieldName, ~argName, typ, value) =>
       switch (typ, value) {
       | (Nullable(_), None) => Ok(None)
@@ -195,7 +206,7 @@ module Arg = {
       | (_, Some(`Null)) => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, value))
       | (Nullable(typ), Some(value)) =>
         evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ, Some(value))
-        >>| (value => Some(value))
+        ->Belt.Result.map(value => Some(value))
       | (Scalar(s), Some(value)) =>
         switch (s.parse(value)) {
         | Ok(coerced) => Ok(coerced)
@@ -224,7 +235,7 @@ module Arg = {
           );
         | value =>
           evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ, Some(value))
-          >>| ((coerced) => ([coerced]: a))
+          ->Belt.Result.map((coerced) => ([coerced]: a))
         }
       | (Enum(enum), Some(value)) =>
         switch (value) {
@@ -255,23 +266,23 @@ let matchesTypeCondition = (typeCondition: string, obj: Schema.obj('ctx, 'src)) 
 
 let rec collectFields:
   (fragmentMap, Schema.obj('ctx, 'src), list(Language.Ast.selection)) =>
-  list(Language.Ast.field) =
+  result(list(Language.Ast.field), string) =
   (fragmentMap, obj, selectionSet) =>
     selectionSet
-    |> Belt.List.map(
-         _,
-         fun
-         | Language.Ast.Field(field) => [field]
-         | Language.Ast.FragmentSpread(fragmentSpread) =>
-           switch (StringMap.find(fragmentSpread.name, fragmentMap)) {
-           | Some({typeCondition, selectionSet}) when matchesTypeCondition(typeCondition, obj) =>
-             collectFields(fragmentMap, obj, selectionSet)
-           | _ => []
-           }
-         | Language.Ast.InlineFragment(inlineFragment) =>
-           collectFields(fragmentMap, obj, inlineFragment.selectionSet),
-       )
-    |> Belt.List.flatten;
+    ->Belt.List.map(
+        fun
+        | Language.Ast.Field(field) => Belt.Result.Ok([field])
+        | Language.Ast.FragmentSpread(fragmentSpread) =>
+          switch (StringMap.find(fragmentSpread.name, fragmentMap)) {
+          | Some({typeCondition, selectionSet}) when matchesTypeCondition(typeCondition, obj) =>
+            collectFields(fragmentMap, obj, selectionSet)
+          | _ => Ok([])
+          }
+        | Language.Ast.InlineFragment(inlineFragment) =>
+          collectFields(fragmentMap, obj, inlineFragment.selectionSet),
+      )
+    ->Result.join
+    ->Result.map(Belt.List.flatten);
 
 let fieldName: Language.Ast.field => string =
   fun
@@ -288,25 +299,30 @@ let getObjField =
 let rec resolveValue:
   type ctx src.
     (executionContext(ctx), src, Language.Ast.field, Schema.typ(ctx, src)) =>
-    Language.Ast.constValue =
+    Io.t(result(Language.Ast.constValue, [> resolveError])) =
   (executionContext, src, field, typ) =>
     switch (typ) {
     | Schema.Nullable(typ') =>
       switch (src) {
       | Some(src') => resolveValue(executionContext, src', field, typ')
-      | None => `Null
+      | None => Io.ok(`Null)
       }
-    | Schema.Scalar(scalar) => scalar.serialize(src)
+    | Schema.Scalar(scalar) => Io.ok(scalar.serialize(src))
     | Schema.Enum(enum) =>
       switch (Belt.List.getBy(enum.values, enumValue => enumValue.value == src)) {
-      | Some(enumValue) => `String(enumValue.name)
-      | None => `Null
+      | Some(enumValue) => Io.ok(`String(enumValue.name))
+      | None => Io.ok(`Null)
       }
     | Schema.Object(obj) =>
-      let fields = collectFields(executionContext.fragmentMap, obj, field.selectionSet);
-      `Map(resolveFields(executionContext, src, obj, fields));
+      switch (collectFields(executionContext.fragmentMap, obj, field.selectionSet)) {
+      | Ok(fields) => resolveFields(executionContext, src, obj, fields)
+      | Error(e) => Io.error(`ArgumentError(e))
+      }
     | Schema.List(typ') =>
-      `List(Belt.List.map(src, srcItem => resolveValue(executionContext, srcItem, field, typ')))
+      Belt.List.map(src, srcItem => resolveValue(executionContext, srcItem, field, typ'))
+      ->Io.all
+      ->Io.map(Result.join)
+      ->Io.Result.map(list => `List(list))
     | Schema.Abstract(_) =>
       let Schema.AbstractValue((typ', src')) = src;
       resolveValue(executionContext, src', field, typ');
@@ -315,7 +331,7 @@ let rec resolveValue:
 and resolveField:
   type ctx src.
     (executionContext(ctx), src, Language.Ast.field, Schema.field(ctx, src)) =>
-    (string, Language.Ast.constValue) =
+    Io.t(result((string, Language.Ast.constValue), [> resolveError])) =
   (executionContext, src, field, Schema.Field(fieldDef)) => {
     let name = fieldName(field);
     let resolver = fieldDef.resolve(executionContext.ctx, src);
@@ -330,44 +346,79 @@ and resolveField:
       )
     ) {
     | Ok(unlifted) =>
-      let lifted = fieldDef.lift(unlifted);
-      (name, resolveValue(executionContext, lifted, field, fieldDef.typ));
-    | Error(e) => raise(ResolveError(e))
+      fieldDef.lift(unlifted)->Io.Result.mapError(err => `ResolveError((err, [])))
+      >>=? (resolved => resolveValue(executionContext, resolved, field, fieldDef.typ))
+      >>| (
+        fun
+        | Ok(value) => Result.Ok((name, value))
+        | Error(`ArgumentError(_) | `ValidationError(_)) as error => error
+        | Error(`ResolveError(_)) as error =>
+          switch (fieldDef.typ) {
+          | Schema.Nullable(_) => Ok((name, `Null))
+          | _ => error
+          }
+      )
+
+    | Error(err) => Io.error(`ArgumentError(err))
     };
   }
 
 and resolveFields:
   type ctx src.
     (executionContext(ctx), src, Schema.obj(ctx, src), list(Language.Ast.field)) =>
-    list((string, Language.Ast.constValue)) =
-  (executionContext, src, obj, fields) =>
-    Belt.List.map(fields, field =>
+    Io.t(result(Language.Ast.constValue, [> resolveError])) =
+  (executionContext, src, obj, fields) => {
+    Io.mapP(fields, field =>
       switch (getObjField(field.name, obj)) {
       | Some(objField) => resolveField(executionContext, src, field, objField)
-      | None => failwith("Field " ++ field.name ++ " is not defined on type " ++ obj.name)
+      | None =>
+        let err = Printf.sprintf("Field '%s' is not defined on type '%s'", field.name, obj.name);
+        Io.error(`ValidationError(err));
       }
-    );
+    )
+    ->Io.map(Result.join)
+    ->Io.Result.map(assocList => `Map(assocList));
+  };
 
 let executeOperation =
     (executionContext: executionContext('ctx), operation: Language.Ast.operationDefinition)
-    : Language.Ast.constValue =>
+    : Io.t(result(Language.Ast.constValue, [> executeError])) =>
   switch (operation.operationType) {
-  | Query => /* TODO: Make parallell */
-    let fields =
+  | Query =>
+    /* TODO: Make parallell */
+
+    Io.return(
       collectFields(
         executionContext.fragmentMap,
         executionContext.schema.query,
         operation.selectionSet,
-      );
-    `Map(resolveFields(executionContext, (), executionContext.schema.query, fields));
-  | Mutation => /* TODO: Ensure Sequencial */
-    let fields =
+      ),
+    )
+    ->Io.Result.mapError(e => `ArgumentError(e))
+    >>=? (
+      fields => (
+        resolveFields(executionContext, (), executionContext.schema.query, fields):
+          Io.t(result(Language.Ast.constValue, resolveError)) :>
+          Io.t(result(Language.Ast.constValue, [> executeError]))
+      )
+    )
+  | Mutation =>
+    /* TODO: Ensure Sequencial */
+    Io.return(
       collectFields(
         executionContext.fragmentMap,
-        executionContext.schema.mutation,
+        executionContext.schema.query,
         operation.selectionSet,
-      );
-    `Map(resolveFields(executionContext, (), executionContext.schema.mutation, fields));
+      ),
+    )
+    ->Io.Result.mapError(e => `ArgumentError(e))
+    >>=? (
+      fields => (
+        resolveFields(executionContext, (), executionContext.schema.mutation, fields):
+          Io.t(result(Language.Ast.constValue, resolveError)) :>
+          Io.t(result(Language.Ast.constValue, [> executeError]))
+      )
+    )
   | _ => failwith("Subscription Not implemented")
   };
 
@@ -388,14 +439,39 @@ let collectFragments = (document: Language.Ast.document) =>
     }
   );
 
+let okResponse = data => {
+  `Map([
+    ("data", data)
+  ]);
+}
+
+let errorResponse = (~path=?, msg): Language.Ast.constValue => {
+  let path' =
+    switch (path) {
+    | Some(path) => path
+    | None => []
+    };
+  `Map([
+    ("data", `Null),
+    (
+      "errors",
+      `List([
+        `Map([
+          ("message", `String(msg)),
+          ("path", `List(Belt.List.map(path', s => `String(s)))),
+        ]),
+      ]),
+    ),
+  ]);
+};
+
 let execute =
     (
       ~variables: variableList=[],
       ~document: Language.Ast.document,
       schema: Schema.t('ctx),
       ~ctx: 'ctx,
-    )
-    : executionResult => {
+    ) => {
   let operations = collectOperations(document);
   let fragmentMap = collectFragments(document);
 
@@ -404,7 +480,7 @@ let execute =
       StringMap.add(name, value, map)
     );
 
-  let data =
+  let result =
     Belt.List.map(
       operations,
       operation => {
@@ -414,7 +490,19 @@ let execute =
     )
     |> Belt.List.headExn;
 
-  {data: data};
+  result
+  >>| (
+    fun
+    | Ok(res) => okResponse(res)
+    | Error(`No_operation_found) => errorResponse("No operation found")
+    | Error(`Operation_not_found) => errorResponse("Operation not found")
+    | Error(`Operation_name_required) => errorResponse("Operation name required")
+    | Error(`Subscriptions_not_configured) => errorResponse("Subscriptions not configured")
+    | Error(`Mutations_not_configured) => errorResponse("Mutations not configured")
+    | Error(`ValidationError(msg)) => errorResponse(msg)
+    | Error(`ArgumentError(msg)) => errorResponse(msg)
+    | Error(`ResolveError(msg, path)) => errorResponse(msg, ~path)
+  );
 };
 
 let rec constValueToJson: Language.Ast.constValue => Js.Json.t =
@@ -440,8 +528,5 @@ let rec constValueToJson: Language.Ast.constValue => Js.Json.t =
     }
   | `Null => Js.Json.null;
 
-let resultToJson: executionResult => Js.Json.t =
-  result => {
-    let constValue = `Map([("data", result.data)]);
-    constValueToJson(constValue);
-  };
+let resultToJson: Io.t(Language.Ast.constValue) => Io.t(Js.Json.t) =
+  result => Io.map(result, constValueToJson);

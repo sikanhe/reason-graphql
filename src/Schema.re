@@ -16,6 +16,66 @@ type enum('a) = {
   values: list(enumValue('a)),
 };
 
+module type Io = {
+  type t(+'a);
+  let return: 'a => t('a);
+  let bind: (t('a), 'a => t('b)) => t('b);
+};
+
+module FutureIo: Io = {
+  include Future;
+  let return = Future.value;
+  let bind = Future.flatMap;
+};
+
+module Io = {
+  include FutureIo;
+
+  let ok = x => FutureIo.return(Belt.Result.Ok(x));
+  let error = x => FutureIo.return(Belt.Result.Error(x));
+  let map = (x, f) => bind(x, x' => return(f(x')));
+
+  let rec all =
+    fun
+    | [] => FutureIo.return([])
+    | [x, ...xs] => bind(all(xs), xs' => map(x, x' => [x', ...xs']));
+
+  module Result = {
+    let bind = (x, f) =>
+      bind(
+        x,
+        fun
+        | Belt.Result.Ok(x') => f(x')
+        | Error(_) as err => FutureIo.return(err),
+      );
+
+    let mapError = (x, f) =>
+      map(
+        x,
+        fun
+        | Belt.Result.Ok(_) as ok => ok
+        | Error(err) => Error(f(err)),
+      );
+
+    let map = (x, f) =>
+      map(
+        x,
+        fun
+        | Belt.Result.Ok(x') => Belt.Result.Ok(f(x'))
+        | Error(_) as err => err,
+      );
+  };
+
+  let mapP = (list, f) => List.map(f, list) |> all;
+
+  module Infix = {
+    let (>>|) = map;
+    let (>>=?) = Result.bind;
+  };
+};
+
+type result('a, 'b) = Belt.Result.t('a, 'b);
+
 module Arg = {
   type arg(_) =
     | Arg(argument('a)): arg('a)
@@ -135,7 +195,7 @@ and fieldDefinition('src, 'out, 'ctx, 'a, 'args) = {
   typ: typ('ctx, 'out),
   args: Arg.arglist('a, 'args),
   resolve: ('ctx, 'src) => 'args,
-  lift: 'a => 'out,
+  lift: 'a => Io.t(result('out, string)),
 }
 and anyType =
   | AnyType(typ(_, _)): anyType
@@ -181,11 +241,11 @@ let obj = (~description=?, ~implements: ref(list(abstract))=ref([]), ~fields, na
 };
 
 let field = (~description=?, ~deprecated=NotDeprecated, ~args, ~resolve, name, typ) =>
-  Field({name, typ, resolve, deprecated, description, args, lift: a => a});
+  Field({name, typ, resolve, deprecated, description, args, lift: Io.ok});
 
 let abstractField = (~description=?, ~deprecated=NotDeprecated, ~args, name, typ) =>
   AbstractField(
-    Field({lift: a => a, name, description, deprecated, typ, args, resolve: Obj.magic()}),
+    Field({lift: Io.ok, name, description, deprecated, typ, args, resolve: Obj.magic()}),
   );
 
 let union = (~description=?, name) => Abstract({name, description, types: [], kind: `Union});
