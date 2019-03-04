@@ -88,7 +88,10 @@ and printInlineFragmentDefinition = ({typeCondition, selectionSet, directives}) 
   join(
     [
       "...",
-      wrap("on ", typeCondition, ""),
+      switch (typeCondition) {
+      | Some(condition) => wrap("on ", condition, "")
+      | None => ""
+      },
       printDirectives(directives),
       printSelectionSet(selectionSet),
     ],

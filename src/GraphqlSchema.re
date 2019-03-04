@@ -83,7 +83,13 @@ module Make = (Io: IO) => {
         );
     };
 
-    let mapP = (list, f) => list->List.map(f)->all;
+    let rec mapSerial = (~memo=[], list, f) =>
+      switch (list) {
+      | [] => Io.return(List.reverse(memo))
+      | [x, ...xs] => bind(f(x), x' => mapSerial(~memo=[x', ...memo], xs, f))
+      };
+
+    let mapParalell = (list, f) => list->List.map(f)->all;
 
     module Infix = {
       let (>>|) = map;
@@ -113,11 +119,11 @@ module Make = (Io: IO) => {
       | Arg(argument('a)): arg('a)
       | DefaultArg(argumentWithDefault('a)): arg('a)
     and argTyp(_) =
-      | Scalar(scalar('a)): argTyp('a)
-      | Enum(enum('a)): argTyp('a)
-      | InputObject(inputObject('a, 'b)): argTyp('a)
-      | Nullable(argTyp('a)): argTyp(option('a))
-      | List(argTyp('a)): argTyp(list('a))
+      | Scalar(scalar('a)): argTyp(option('a))
+      | Enum(enum('a)): argTyp(option('a))
+      | InputObject(inputObject('a, 'b)): argTyp(option('a))
+      | List(argTyp('a)): argTyp(option(list('a)))
+      | NonNull(argTyp(option('a))): argTyp('a)
     and scalar('a) = {
       name: string,
       description: option(string),
@@ -197,16 +203,16 @@ module Make = (Io: IO) => {
       });
 
     let list = a => List(a);
-    let nullable = a => Nullable(a);
+    let nonNull = a => NonNull(a);
   };
 
   type typ(_, _) =
-    | Scalar(scalar('src)): typ('ctx, 'src)
-    | Enum(enum('src)): typ('ctx, 'src)
-    | List(typ('ctx, 'src)): typ('ctx, list('src))
-    | Object(obj('ctx, 'src)): typ('ctx, 'src)
-    | Abstract(abstract): typ('ctx, abstractValue('ctx, 'a))
-    | Nullable(typ('ctx, 'src)): typ('ctx, option('src))
+    | Scalar(scalar('src)): typ('ctx, option('src))
+    | Enum(enum('src)): typ('ctx, option('src))
+    | List(typ('ctx, 'src)): typ('ctx, option(list('src)))
+    | Object(obj('ctx, 'src)): typ('ctx, option('src))
+    | Abstract(abstract): typ('ctx, option(abstractValue('ctx, 'a)))
+    | NonNull(typ('ctx, option('src))): typ('ctx, 'src)
   and scalar('src) = {
     name: string,
     description: option(string),
@@ -241,9 +247,61 @@ module Make = (Io: IO) => {
   and abstractField =
     | AbstractField(field(_, _)): abstractField
   and abstractValue('ctx, 'a) =
-    | AbstractValue((typ('ctx, 'src), 'src)): abstractValue('ctx, 'a);
+    | AbstractValue((typ('ctx, option('src)), 'src)): abstractValue('ctx, 'a);
 
-  type abstractType('ctx, 'a) = typ('ctx, abstractValue('ctx, 'a));
+  type abstractType('ctx, 'a) = typ('ctx, option(abstractValue('ctx, 'a)));
+
+  type directive_location = [
+    | `Query
+    | `Mutation
+    | `Subscription
+    | `Field
+    | `Fragment_definition
+    | `Fragment_spread
+    | `Inline_fragment
+    | `Variable_definition
+  ];
+
+  type directiveInfo('args) = {
+    name: string,
+    description: option(string),
+    locations: list(directive_location),
+    args: Arg.arglist([ | `Skip | `Include], 'args),
+    resolve: 'args,
+  };
+
+  type directive =
+    | Directive(directiveInfo('args)): directive;
+
+  let skipDirective =
+    Directive({
+      name: "skip",
+      description:
+        Some(
+          "Directs the executor to skip this field or fragment when the `if` argument is true.",
+        ),
+      locations: [`Field, `Fragment_spread, `Inline_fragment],
+      args: Arg.[arg("if", nonNull(boolean), ~description="Skipped when true.")],
+      resolve:
+        fun
+        | true => `Skip
+        | false => `Include,
+    });
+
+  let includeDirective =
+    Directive({
+      name: "include",
+      description:
+        Some(
+          "Directs the executor to include this field or fragment only when the `if` argument is true.",
+        ),
+      locations: [`Field, `Fragment_spread, `Inline_fragment],
+      args: Arg.[arg("if", nonNull(boolean), ~description="Included when true.")],
+      resolve:
+        fun
+        | true => `Include
+        | false => `Skip,
+    });
 
   type schema('ctx) = {
     query: obj('ctx, unit),
@@ -318,16 +376,16 @@ module Make = (Io: IO) => {
   let create = (~mutation=?, query) => {query, mutation};
 
   /* Built in scalars */
-  let string: 'ctx. typ('ctx, string) =
+  let string: 'ctx. typ('ctx, option(string)) =
     Scalar({name: "String", description: None, serialize: str => `String(str)});
-  let int: 'ctx. typ('ctx, int) =
+  let int: 'ctx. typ('ctx, option(int)) =
     Scalar({name: "Int", description: None, serialize: int => `Int(int)});
-  let float: 'ctx. typ('ctx, float) =
+  let float: 'ctx. typ('ctx, option(float)) =
     Scalar({name: "Float", description: None, serialize: float => `Float(float)});
-  let boolean: 'ctx. typ('ctx, bool) =
+  let boolean: 'ctx. typ('ctx, option(bool)) =
     Scalar({name: "Boolean", description: None, serialize: bool => `Boolean(bool)});
   let list = typ => List(typ);
-  let nullable = typ => Nullable(typ);
+  let nonNull = typ => NonNull(typ);
 
   module Introspection = {
     /* anyTyp, anyField and anyArg hide type parameters to avoid scope escaping errors */
@@ -355,7 +413,7 @@ module Make = (Io: IO) => {
       (~memo=([], StringSet.empty), typ) =>
         switch (typ) {
         | List(typ) => types(~memo, typ)
-        | Nullable(typ) => types(~memo, typ)
+        | NonNull(typ) => types(~memo, typ)
         | Scalar(s) as scalar =>
           unlessVisited(memo, s.name, ((result, visited)) =>
             ([AnyTyp(scalar), ...result], StringSet.add(s.name, visited))
@@ -401,7 +459,7 @@ module Make = (Io: IO) => {
       (memo, argtyp) =>
         switch (argtyp) {
         | Arg.List(typ) => arg_types(memo, typ)
-        | Arg.Nullable(typ) => arg_types(memo, typ)
+        | Arg.NonNull(typ) => arg_types(memo, typ)
         | Arg.Scalar(s) as scalar =>
           unlessVisited(memo, s.name, ((result, visited)) =>
             ([AnyArgTyp(scalar), ...result], StringSet.add(s.name, visited))
@@ -473,7 +531,7 @@ module Make = (Io: IO) => {
         ],
       });
 
-    let __enumValue: 'ctx. typ('ctx, anyEnumValue) =
+    let __enumValue: 'ctx. typ('ctx, option(anyEnumValue)) =
       Object({
         name: "__EnumValue",
         description: None,
@@ -484,7 +542,7 @@ module Make = (Io: IO) => {
               name: "name",
               description: None,
               deprecated: NotDeprecated,
-              typ: string,
+              typ: NonNull(string),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, AnyEnumValue(enum_value)) => enum_value.name,
@@ -493,7 +551,7 @@ module Make = (Io: IO) => {
               name: "description",
               description: None,
               deprecated: NotDeprecated,
-              typ: Nullable(string),
+              typ: string,
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, AnyEnumValue(enum_value)) => {
@@ -504,7 +562,7 @@ module Make = (Io: IO) => {
               name: "isDeprecated",
               description: None,
               deprecated: NotDeprecated,
-              typ: boolean,
+              typ: NonNull(boolean),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, AnyEnumValue(enum_value)) => enum_value.deprecated != NotDeprecated,
@@ -513,7 +571,7 @@ module Make = (Io: IO) => {
               name: "deprecationReason",
               description: None,
               deprecated: NotDeprecated,
-              typ: Nullable(string),
+              typ: string,
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, AnyEnumValue(enum_value)) =>
@@ -525,7 +583,7 @@ module Make = (Io: IO) => {
           ],
       });
 
-    let rec __input_value: 'ctx. typ('ctx, anyArg) =
+    let rec __input_value: 'ctx. typ('ctx, option(anyArg)) =
       Object({
         name: "__InputValue",
         description: None,
@@ -534,7 +592,7 @@ module Make = (Io: IO) => {
           lazy [
             Field({
               name: "name",
-              typ: string,
+              typ: NonNull(string),
               args: Arg.[],
               deprecated: NotDeprecated,
               description: None,
@@ -547,7 +605,7 @@ module Make = (Io: IO) => {
             }),
             Field({
               name: "description",
-              typ: Nullable(string),
+              typ: string,
               args: Arg.[],
               deprecated: NotDeprecated,
               description: None,
@@ -560,7 +618,7 @@ module Make = (Io: IO) => {
             }),
             Field({
               name: "type",
-              typ: __type,
+              typ: NonNull(__type),
               args: Arg.[],
               deprecated: NotDeprecated,
               description: None,
@@ -573,7 +631,7 @@ module Make = (Io: IO) => {
             }),
           ],
       })
-    and __type: 'ctx. typ('ctx, anyTyp) =
+    and __type: 'ctx. typ('ctx, option(anyTyp)) =
       Object({
         name: "__Type",
         description: None,
@@ -584,30 +642,46 @@ module Make = (Io: IO) => {
               name: "kind",
               description: None,
               deprecated: NotDeprecated,
-              typ: __type_kind,
+              typ: NonNull(__type_kind),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, t) =>
                 switch (t) {
-                | AnyTyp(Nullable(Object(_))) => `Object
-                | AnyTyp(Nullable(Abstract({kind: `Union, _}))) => `Union
-                | AnyTyp(Nullable(Abstract({kind: `Interface(_), _}))) => `Interface
-                | AnyTyp(Nullable(List(_))) => `List
-                | AnyTyp(Nullable(Scalar(_))) => `Scalar
-                | AnyTyp(Nullable(Enum(_))) => `Enum
-                | AnyTyp(_) => `NonNull
-                | AnyArgTyp(Arg.Nullable(Arg.InputObject(_))) => `InputObject
-                | AnyArgTyp(Arg.Nullable(Arg.List(_))) => `List
-                | AnyArgTyp(Arg.Nullable(Arg.Scalar(_))) => `Scalar
-                | AnyArgTyp(Arg.Nullable(Arg.Enum(_))) => `Enum
-                | AnyArgTyp(_) => `NonNull
+                | AnyTyp(Object(_)) => `Object
+                | AnyTyp(Abstract({kind: `Union, _})) => `Union
+                | AnyTyp(Abstract({kind: `Interface(_), _})) => `Interface
+                | AnyTyp(List(_)) => `List
+                | AnyTyp(Scalar(_)) => `Scalar
+                | AnyTyp(Enum(_)) => `Enum
+                | AnyTyp(NonNull(_)) => `NonNull
+                | AnyArgTyp(Arg.InputObject(_)) => `InputObject
+                | AnyArgTyp(Arg.List(_)) => `List
+                | AnyArgTyp(Arg.Scalar(_)) => `Scalar
+                | AnyArgTyp(Arg.Enum(_)) => `Enum
+                | AnyArgTyp(Arg.NonNull(_)) => `NonNull
+                },
+            }),
+            Field({
+              name: "ofType",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: __type,
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, t) =>
+                switch (t) {
+                | AnyTyp(NonNull(typ)) => Some(AnyTyp(typ))
+                | AnyTyp(List(typ)) => Some(AnyTyp(typ))
+                | AnyArgTyp(Arg.NonNull(typ)) => Some(AnyArgTyp(typ))
+                | AnyArgTyp(Arg.List(typ)) => Some(AnyArgTyp(typ))
+                | _ => None
                 },
             }),
             Field({
               name: "name",
               description: None,
               deprecated: NotDeprecated,
-              typ: Nullable(string),
+              typ: string,
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, t) =>
@@ -626,7 +700,7 @@ module Make = (Io: IO) => {
               name: "description",
               description: None,
               deprecated: NotDeprecated,
-              typ: Nullable(string),
+              typ: string,
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, t) =>
@@ -645,7 +719,7 @@ module Make = (Io: IO) => {
               name: "fields",
               description: None,
               deprecated: NotDeprecated,
-              typ: Nullable(List(__field)),
+              typ: List(NonNull(__field)),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, t) =>
@@ -659,9 +733,70 @@ module Make = (Io: IO) => {
                 | _ => None
                 },
             }),
+            Field({
+              name: "interfaces",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: List(NonNull(__type)),
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, t) =>
+                switch (t) {
+                | AnyTyp(Object(o)) =>
+                  let interfaces =
+                    List.keep(
+                      o.abstracts^,
+                      fun
+                      | {kind: `Interface(_), _} => true
+                      | _ => false,
+                    );
+                  Some(List.map(interfaces, i => AnyTyp(Abstract(i))));
+                | _ => None
+                },
+            }),
+            Field({
+              name: "possibleTypes",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: List(NonNull(__type)),
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, t) =>
+                switch (t) {
+                | AnyTyp(Abstract(a)) => Some(a.types)
+                | _ => None
+                },
+            }),
+            Field({
+              name: "inputFields",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: List(NonNull(__input_value)),
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, t) =>
+                switch (t) {
+                | AnyArgTyp(Arg.InputObject(o)) => Some(args_to_list(o.fields))
+                | _ => None
+                },
+            }),
+            Field({
+              name: "enumValues",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: List(NonNull(__enumValue)),
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, t) =>
+                switch (t) {
+                | AnyTyp(Enum(e)) => Some(List.map(e.values, x => AnyEnumValue(x)))
+                | AnyArgTyp(Arg.Enum(e)) => Some(List.map(e.values, x => AnyEnumValue(x)))
+                | _ => None
+                },
+            }),
           ],
       })
-    and __field: type ctx. typ(ctx, anyField) =
+    and __field: type ctx. typ(ctx, option(anyField)) =
       Object({
         name: "__Field",
         description: None,
@@ -672,7 +807,7 @@ module Make = (Io: IO) => {
               name: "name",
               description: None,
               deprecated: NotDeprecated,
-              typ: string,
+              typ: NonNull(string),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, f) =>
@@ -686,7 +821,7 @@ module Make = (Io: IO) => {
               name: "description",
               description: None,
               deprecated: NotDeprecated,
-              typ: Nullable(string),
+              typ: string,
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, f) =>
@@ -700,7 +835,7 @@ module Make = (Io: IO) => {
               name: "args",
               description: None,
               deprecated: NotDeprecated,
-              typ: List(__input_value),
+              typ: NonNull(List(NonNull(__input_value))),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, f) =>
@@ -713,7 +848,7 @@ module Make = (Io: IO) => {
               name: "type",
               description: None,
               deprecated: NotDeprecated,
-              typ: __type,
+              typ: NonNull(__type),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, f) =>
@@ -727,7 +862,7 @@ module Make = (Io: IO) => {
               name: "isDeprecated",
               description: None,
               deprecated: NotDeprecated,
-              typ: boolean,
+              typ: NonNull(boolean),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, f) =>
@@ -740,7 +875,7 @@ module Make = (Io: IO) => {
               name: "deprecationReason",
               description: None,
               deprecated: NotDeprecated,
-              typ: Nullable(string),
+              typ: string,
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, f) =>
@@ -751,92 +886,95 @@ module Make = (Io: IO) => {
             }),
           ],
       });
-    // let __directive_location =
-    //   Enum({
-    //     name: "__DirectiveLocation",
-    //     description: None,
-    //     values: [
-    //       {name: "QUERY", description: None, deprecated: NotDeprecated, value: `Query},
-    //       {name: "MUTATION", description: None, deprecated: NotDeprecated, value: `Mutation},
-    //       {
-    //         name: "SUBSCRIPTION",
-    //         description: None,
-    //         deprecated: NotDeprecated,
-    //         value: `Subscription,
-    //       },
-    //       {name: "FIELD", description: None, deprecated: NotDeprecated, value: `Field},
-    //       {
-    //         name: "FRAGMENT_DEFINITION",
-    //         description: None,
-    //         deprecated: NotDeprecated,
-    //         value: `Fragment_definition,
-    //       },
-    //       {
-    //         name: "FRAGMENT_SPREAD",
-    //         description: None,
-    //         deprecated: NotDeprecated,
-    //         value: `Fragment_spread,
-    //       },
-    //       {
-    //         name: "INLINE_FRAGMENT",
-    //         description: None,
-    //         deprecated: NotDeprecated,
-    //         value: `Inline_fragment,
-    //       },
-    //       {
-    //         name: "VARIABLE_DEFINITION",
-    //         description: None,
-    //         deprecated: NotDeprecated,
-    //         value: `Variable_definition,
-    //       },
-    //     ],
-    //   });
-    // let __directive =
-    //   Object({
-    //     name: "__Directive",
-    //     description: None,
-    //     abstracts: no_abstracts,
-    //     fields:
-    //       lazy [
-    //         Field({
-    //           name: "name",
-    //           description: None,
-    //           deprecated: NotDeprecated,
-    //           typ: NonNullable(string),
-    //           args: Arg.[],
-    //           lift: Io.ok,
-    //           resolve: (_, Directive(d)) => d.name,
-    //         }),
-    //         Field({
-    //           name: "description",
-    //           description: None,
-    //           deprecated: NotDeprecated,
-    //           typ: string,
-    //           args: Arg.[],
-    //           lift: Io.ok,
-    //           resolve: (_, Directive(d)) => d.doc,
-    //         }),
-    //         Field({
-    //           name: "locations",
-    //           description: None,
-    //           deprecated: NotDeprecated,
-    //           typ: NonNullable(List(NonNullable(__directive_location))),
-    //           args: Arg.[],
-    //           lift: Io.ok,
-    //           resolve: (_, Directive(d)) => d.locations,
-    //         }),
-    //         Field({
-    //           name: "args",
-    //           description: None,
-    //           deprecated: NotDeprecated,
-    //           typ: NonNullable(List(NonNullable(__input_value))),
-    //           args: Arg.[],
-    //           lift: Io.ok,
-    //           resolve: (_, Directive(d)) => args_to_list(d.args),
-    //         }),
-    //       ],
-    //   });
-    let __schema: 'ctx. typ('ctx, schema('ctx)) =
+
+    let __directive_location =
+      Enum({
+        name: "__DirectiveLocation",
+        description: None,
+        values: [
+          {name: "QUERY", description: None, deprecated: NotDeprecated, value: `Query},
+          {name: "MUTATION", description: None, deprecated: NotDeprecated, value: `Mutation},
+          {
+            name: "SUBSCRIPTION",
+            description: None,
+            deprecated: NotDeprecated,
+            value: `Subscription,
+          },
+          {name: "FIELD", description: None, deprecated: NotDeprecated, value: `Field},
+          {
+            name: "FRAGMENT_DEFINITION",
+            description: None,
+            deprecated: NotDeprecated,
+            value: `Fragment_definition,
+          },
+          {
+            name: "FRAGMENT_SPREAD",
+            description: None,
+            deprecated: NotDeprecated,
+            value: `Fragment_spread,
+          },
+          {
+            name: "INLINE_FRAGMENT",
+            description: None,
+            deprecated: NotDeprecated,
+            value: `Inline_fragment,
+          },
+          {
+            name: "VARIABLE_DEFINITION",
+            description: None,
+            deprecated: NotDeprecated,
+            value: `Variable_definition,
+          },
+        ],
+      });
+
+    let __directive =
+      Object({
+        name: "__Directive",
+        description: None,
+        abstracts: no_abstracts,
+        fields:
+          lazy [
+            Field({
+              name: "name",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: NonNull(string),
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, Directive(d)) => d.name,
+            }),
+            Field({
+              name: "description",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: string,
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, Directive(d)) => d.description,
+            }),
+            Field({
+              name: "locations",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: NonNull(List(NonNull(__directive_location))),
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, Directive(d)) => d.locations,
+            }),
+            Field({
+              name: "args",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: NonNull(List(NonNull(__input_value))),
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, Directive(d)) => args_to_list(d.args),
+            }),
+          ],
+      });
+
+    let __schema: 'ctx. typ('ctx, option(schema('ctx))) =
       Object({
         name: "__Schema",
         description: None,
@@ -847,7 +985,7 @@ module Make = (Io: IO) => {
               name: "types",
               description: None,
               deprecated: NotDeprecated,
-              typ: List(__type),
+              typ: NonNull(List(NonNull(__type))),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, s) => {
@@ -872,7 +1010,7 @@ module Make = (Io: IO) => {
               name: "queryType",
               description: None,
               deprecated: NotDeprecated,
-              typ: __type,
+              typ: NonNull(__type),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, s) => AnyTyp(Object(s.query)),
@@ -881,7 +1019,7 @@ module Make = (Io: IO) => {
               name: "mutationType",
               description: None,
               deprecated: NotDeprecated,
-              typ: Nullable(__type),
+              typ: __type,
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, s) => Option.map(s.mutation, mut => AnyTyp(Object(mut))),
@@ -890,7 +1028,7 @@ module Make = (Io: IO) => {
             //   name: "subscriptionType",
             //   description: None,
             //   deprecated: NotDeprecated,
-            //   typ: Nullable(__type),
+            //   typ: NonNull(__type),
             //   args: Arg.[],
             //   lift: Io.ok,
             //   resolve: (_, s) =>
@@ -898,36 +1036,36 @@ module Make = (Io: IO) => {
             //       AnyTyp(Object(obj_of_subscription_obj(subs)))
             //     ),
             // }),
-            // Field({
-            //   name: "directives",
-            //   description: None,
-            //   deprecated: NotDeprecated,
-            //   typ: List(__directive),
-            //   args: Arg.[],
-            //   lift: Io.ok,
-            //   resolve: (_, _) => [],
-            // }),
+            Field({
+              name: "directives",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: NonNull(List(NonNull(__directive))),
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, _) => [],
+            }),
           ],
       });
 
-    let add_schema_field = s => {
-      let schemaField =
-        Field({
-          name: "__schema",
-          typ: __schema,
-          args: [],
-          description: None,
-          deprecated: NotDeprecated,
-          lift: Io.ok,
-          resolve: (_, _) => s,
-        });
-
-      let fields = lazy [schemaField, ...Lazy.force(s.query.fields)];
+    let addSchemaField = schema => {
       {
-        ...s,
+        ...schema,
         query: {
-          ...s.query,
-          fields,
+          ...schema.query,
+          fields:
+            lazy [
+              Field({
+                name: "__schema",
+                typ: NonNull(__schema),
+                args: [],
+                description: None,
+                deprecated: NotDeprecated,
+                lift: Io.ok,
+                resolve: (_, _) => schema,
+              }),
+              ...Lazy.force(schema.query.fields),
+            ],
         },
       };
     };
@@ -1008,15 +1146,11 @@ module Make = (Io: IO) => {
 
     let rec stringOfArgType: type a. argTyp(a) => string =
       fun
-      | Scalar(a) => Printf.sprintf("%s!", a.name)
-      | InputObject(a) => Printf.sprintf("%s!", a.name)
-      | Enum(a) => Printf.sprintf("%s!", a.name)
-      | List(a) => Printf.sprintf("[%s]!", stringOfArgType(a))
-      | Nullable(Scalar(a)) => Printf.sprintf("%s", a.name)
-      | Nullable(InputObject(a)) => Printf.sprintf("%s", a.name)
-      | Nullable(Enum(a)) => Printf.sprintf("%s", a.name)
-      | Nullable(List(a)) => Printf.sprintf("[%s]", stringOfArgType(a))
-      | Nullable(Nullable(_)) => "";
+      | Scalar(a) => Printf.sprintf("%s", a.name)
+      | InputObject(a) => Printf.sprintf("%s", a.name)
+      | Enum(a) => Printf.sprintf("%s", a.name)
+      | List(a) => Printf.sprintf("[%s]", stringOfArgType(a))
+      | NonNull(a) => Printf.sprintf("%s!", stringOfArgType(a));
 
     let evalArgError = (~fieldType="field", ~fieldName, ~argName, argTyp, value) => {
       let foundStr =
@@ -1108,17 +1242,28 @@ module Make = (Io: IO) => {
         Result.t(a, string) =
       (variableMap, ~fieldType=?, ~fieldName, ~argName, typ, value) =>
         switch (typ, value) {
-        | (Nullable(_), None) => Ok(None)
-        | (Nullable(_), Some(`Null)) => Ok(None)
-        | (_, None) => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, value))
-        | (_, Some(`Null)) =>
+        | (NonNull(_), None) =>
           Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, value))
-        | (Nullable(typ), Some(value)) =>
+        | (NonNull(_), Some(`Null)) =>
+          Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, value))
+        | (Scalar(_), None) => Ok(None)
+        | (Scalar(_), Some(`Null)) => Ok(None)
+        | (InputObject(_), None) => Ok(None)
+        | (InputObject(_), Some(`Null)) => Ok(None)
+        | (List(_), None) => Ok(None)
+        | (List(_), Some(`Null)) => Ok(None)
+        | (Enum(_), None) => Ok(None)
+        | (Enum(_), Some(`Null)) => Ok(None)
+        | (NonNull(typ), Some(value)) =>
           evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ, Some(value))
-          ->Result.map(value => Some(value))
+          ->Result.flatMap(
+              fun
+              | Some(value) => Ok(value)
+              | None => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, None)),
+            )
         | (Scalar(s), Some(value)) =>
           switch (s.parse(value)) {
-          | Ok(coerced) => Ok(coerced)
+          | Ok(coerced) => Ok(Some(coerced))
           | Error(_) => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, Some(value)))
           }
         | (InputObject(o), Some(value)) =>
@@ -1132,6 +1277,7 @@ module Make = (Io: IO) => {
               (props :> list((string, Ast.value))),
               o.coerce,
             )
+            ->Result.map(coerced => Some(coerced))
           | _ => Error(evalArgError(~fieldType?, ~fieldName, ~argName, typ, Some(value)))
           }
         | (List(typ), Some(value)) =>
@@ -1141,17 +1287,18 @@ module Make = (Io: IO) => {
             List.Result.all(
               optionValues,
               evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ),
-            );
+            )
+            ->Result.map(coerced => Some(coerced));
           | value =>
             evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ, Some(value))
-            ->Result.map((coerced) => ([coerced]: a))
+            ->Result.map((coerced) => (Some([coerced]): a))
           }
         | (Enum(enum), Some(value)) =>
           switch (value) {
           | `Enum(v)
           | `String(v) =>
             switch (Belt.List.getBy(enum.values, enumValue => enumValue.name == v)) {
-            | Some(enumValue) => Ok(enumValue.value)
+            | Some(enumValue) => Ok(Some(enumValue.value))
             | None =>
               Error(
                 Printf.sprintf(
@@ -1175,21 +1322,60 @@ module Make = (Io: IO) => {
     typeCondition == obj.name
     || Belt.List.some(obj.abstracts^, abstract => abstract.name == typeCondition);
 
+  let rec shouldIncludeField = (ctx, directives: list(Ast.directive)) =>
+    switch (directives) {
+    | [] => Ok(true)
+    | [{name: "skip", arguments}, ...rest] =>
+      eval_directive(ctx, skipDirective, arguments, rest)
+    | [{name: "include", arguments}, ...rest] =>
+      eval_directive(ctx, includeDirective, arguments, rest)
+    | [{name, _}, ..._] =>
+      let err = Format.sprintf("Unknown directive: %s", name);
+      Error(err);
+    }
+  and eval_directive = (ctx, Directive({name, args, resolve, _}), arguments, rest) =>
+    ArgEval.evalArgList(
+      ctx.variableMap,
+      ~fieldType="directive",
+      ~fieldName=name,
+      args,
+      arguments,
+      resolve,
+    )
+    ->Result.flatMap(
+        fun
+        | `Skip => Ok(false)
+        | `Include => shouldIncludeField(ctx, rest),
+      );
+
   let rec collectFields:
-    (fragmentMap, obj('ctx, 'src), list(Ast.selection)) => Result.t(list(Ast.field), string) =
-    (fragmentMap, obj, selectionSet) =>
+    (executionContext('ctx), obj('ctx, 'src), list(Ast.selection)) =>
+    Result.t(list(Ast.field), string) =
+    (ctx, obj, selectionSet) =>
       selectionSet
       ->List.map(
           fun
-          | Ast.Field(field) => Ok([field])
+          | Ast.Field(field) =>
+            shouldIncludeField(ctx, field.directives)
+            ->Result.map(shouldInclude => shouldInclude ? [field] : [])
           | Ast.FragmentSpread(fragmentSpread) =>
-            switch (StringMap.get(fragmentMap, fragmentSpread.name)) {
-            | Some({typeCondition, selectionSet}) when matchesTypeCondition(typeCondition, obj) =>
-              collectFields(fragmentMap, obj, selectionSet)
+            switch (StringMap.get(ctx.fragmentMap, fragmentSpread.name)) {
+            | Some({typeCondition, selectionSet, directives})
+                when matchesTypeCondition(typeCondition, obj) =>
+              shouldIncludeField(ctx, directives)
+              ->Result.flatMap(shouldInclude =>
+                  shouldInclude ? collectFields(ctx, obj, selectionSet) : Ok([])
+                )
             | _ => Ok([])
             }
-          | Ast.InlineFragment(inlineFragment) =>
-            collectFields(fragmentMap, obj, inlineFragment.selectionSet),
+          | Ast.InlineFragment({typeCondition: Some(condition), directives} as inlineFragment)
+              when matchesTypeCondition(condition, obj) => {
+              shouldIncludeField(ctx, directives)
+              ->Result.flatMap(shouldInclude =>
+                  shouldInclude ? collectFields(ctx, obj, inlineFragment.selectionSet) : Ok([])
+                );
+            }
+          | Ast.InlineFragment({typeCondition: _}) => Ok([]),
         )
       ->List.Result.join
       ->List.Result.map(Belt.List.flatten);
@@ -1202,6 +1388,12 @@ module Make = (Io: IO) => {
   let getObjField = (fieldName: string, obj: obj('ctx, 'src)): option(field('ctx, 'src)) =>
     obj.fields |> Lazy.force |> Belt.List.getBy(_, (Field(field)) => field.name == fieldName);
 
+  let coerceOrNull = (src, f) =>
+    switch (src) {
+    | Some(src') => f(src')
+    | None => Io.ok(`Null)
+    };
+
 
   let rec resolveValue:
     type ctx src.
@@ -1209,30 +1401,37 @@ module Make = (Io: IO) => {
       Io.t(Result.t(Ast.constValue, [> resolveError])) =
     (executionContext, src, field, typ) =>
       switch (typ) {
-      | Nullable(typ') =>
-        switch (src) {
-        | Some(src') => resolveValue(executionContext, src', field, typ')
-        | None => Io.ok(`Null)
-        }
-      | Scalar(scalar) => Io.ok(scalar.serialize(src))
+      | NonNull(typ') => resolveValue(executionContext, Some(src), field, typ')
+      | Scalar(scalar) => coerceOrNull(src, src' => Io.ok(scalar.serialize(src')))
       | Enum(enum) =>
-        switch (Belt.List.getBy(enum.values, enumValue => enumValue.value == src)) {
-        | Some(enumValue) => Io.ok(`String(enumValue.name))
-        | None => Io.ok(`Null)
-        }
+        coerceOrNull(src, src' =>
+          switch (Belt.List.getBy(enum.values, enumValue => enumValue.value == src')) {
+          | Some(enumValue) => Io.ok(`String(enumValue.name))
+          | None => Io.ok(`Null)
+          }
+        )
       | Object(obj) =>
-        switch (collectFields(executionContext.fragmentMap, obj, field.selectionSet)) {
-        | Ok(fields) => resolveFields(executionContext, src, obj, fields)
-        | Error(e) => Io.error(`ArgumentError(e))
-        }
+        coerceOrNull(src, src' =>
+          switch (collectFields(executionContext, obj, field.selectionSet)) {
+          | Ok(fields) => resolveFields(executionContext, src', obj, fields)
+          | Error(e) => Io.error(`ArgumentError(e))
+          }
+        )
       | List(typ') =>
-        List.map(src, srcItem => resolveValue(executionContext, srcItem, field, typ'))
-        ->Io.all
-        ->Io.map(List.Result.join)
-        ->Io.Result.map(list => `List(list))
+        coerceOrNull(src, src' =>
+          List.map(src', srcItem => resolveValue(executionContext, srcItem, field, typ'))
+          ->Io.all
+          ->Io.map(List.Result.join)
+          ->Io.Result.map(list => `List(list))
+        )
       | Abstract(_) =>
-        let AbstractValue((typ', src')) = src;
-        resolveValue(executionContext, src', field, typ');
+        coerceOrNull(
+          src,
+          src' => {
+            let AbstractValue((typ', src')) = src';
+            resolveValue(executionContext, Some(src'), field, typ');
+          },
+        )
       }
 
   and resolveField:
@@ -1261,8 +1460,8 @@ module Make = (Io: IO) => {
           | Error(`ArgumentError(_) | `ValidationError(_)) as error => error
           | Error(`ResolveError(_)) as error =>
             switch (fieldDef.typ) {
-            | Nullable(_) => Ok((name, `Null))
-            | _ => error
+            | NonNull(_) => error
+            | _ => Ok((name, `Null))
             }
         )
 
@@ -1275,7 +1474,14 @@ module Make = (Io: IO) => {
       (executionContext(ctx), src, obj(ctx, src), list(Ast.field)) =>
       Io.t(Result.t(Ast.constValue, [> resolveError])) =
     (executionContext, src, obj, fields) => {
-      Io.mapP(fields, field =>
+      let mapFields =
+        switch (executionContext.operation.operationType) {
+        | Query
+        | Subscription => Io.mapParalell
+        | Mutation => Io.mapSerial(~memo=[])
+        };
+
+      mapFields(fields, field =>
         switch (getObjField(field.name, obj)) {
         | Some(objField) => resolveField(executionContext, src, field, objField)
         | None =>
@@ -1296,11 +1502,7 @@ module Make = (Io: IO) => {
       /* TODO: Make parallell */
 
       Io.return(
-        collectFields(
-          executionContext.fragmentMap,
-          executionContext.schema.query,
-          operation.selectionSet,
-        ),
+        collectFields(executionContext, executionContext.schema.query, operation.selectionSet),
       )
       ->Io.Result.mapError(e => `ArgumentError(e))
       >>=? (
@@ -1311,10 +1513,9 @@ module Make = (Io: IO) => {
         )
       )
     | Mutation =>
-      /* TODO: Ensure Sequencial */
       switch (executionContext.schema.mutation) {
       | Some(mutation) =>
-        Io.return(collectFields(executionContext.fragmentMap, mutation, operation.selectionSet))
+        Io.return(collectFields(executionContext, mutation, operation.selectionSet))
         ->Io.Result.mapError(e => `ArgumentError(e))
         >>=? (
           fields => (
@@ -1379,7 +1580,7 @@ module Make = (Io: IO) => {
         StringMap.set(map, name, value)
       );
 
-    let schema' = Introspection.add_schema_field(schema);
+    let schema' = Introspection.addSchemaField(schema);
 
     let result =
       List.map(

@@ -321,7 +321,7 @@ and parseFragment = (lexer: Lexer.t) => {
     })
   | _ =>
     InlineFragment({
-      typeCondition: parseName(lexer),
+      typeCondition: hasTypeCondition ? Some(parseName(lexer)) : None,
       directives: parseDirectives(lexer, ~isConst=false),
       selectionSet: parseSelectionSet(lexer),
     })
