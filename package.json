@@ -26,7 +26,7 @@
   "license": "MIT",
   "devDependencies": {
     "@glennsl/bs-jest": "^0.4.5",
-    "bs-platform": "4.0.18"
+    "bs-platform": "^5.0.0-dev.4"
   },
   "dependencies": {
     "reason-future": "^2.4.0"

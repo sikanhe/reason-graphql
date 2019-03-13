@@ -67,7 +67,7 @@ and fragmentDefinition = {
 }
 
 and inlineFragmentDefinition = {
-  typeCondition: string,
+  typeCondition: option(string),
   selectionSet: list(selection),
   directives: list(directive),
 }

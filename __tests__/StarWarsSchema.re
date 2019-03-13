@@ -1,5 +1,5 @@
 open Belt.Result;
-open GraphqlFuture
+open GraphqlFuture;
 
 module StarWars = StarWarsData;
 
@@ -19,10 +19,10 @@ let rec characterInterface: Schema.abstractType('ctx, [ | `Character]) =
   Schema.(
     interface("Character", ~fields=character =>
       [
-        abstractField("id", int, ~args=[]),
-        abstractField("name", string, ~args=[]),
-        abstractField("appearsIn", list(episodeEnum.fieldType), ~args=[]),
-        abstractField("friends", list(character), ~args=[]),
+        abstractField("id", nonnull(int), ~args=[]),
+        abstractField("name", nonnull(string), ~args=[]),
+        abstractField("appearsIn", nonnull(list(nonnull(episodeEnum.fieldType))), ~args=[]),
+        abstractField("friends", nonnull(list(nonnull(character))), ~args=[]),
       ]
     )
   )
@@ -41,24 +41,27 @@ and humanTypeLazy =
     Schema.(
       obj("Human", ~description="A humanoid creature in the Star Wars universe.", ~fields=_ =>
         [
-          field("id", int, ~args=[], ~resolve=(_ctx, human: StarWars.human) => human.id),
-          field("name", string, ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+          field("id", nonnull(int), ~args=[], ~resolve=(_ctx, human: StarWars.human) => human.id),
+          field("name", nonnull(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
             human.StarWars.name
           ),
           field(
             "appearsIn",
-            list(episodeEnum.fieldType),
+            nonnull(list(nonnull(episodeEnum.fieldType))),
             ~args=[],
             ~resolve=(_ctx, human: StarWars.human) =>
             human.StarWars.appearsIn
           ),
           async_field(
-            "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+            "friends",
+            nonnull(list(nonnull(characterInterface))),
+            ~args=[],
+            ~resolve=(_ctx, human: StarWars.human) =>
             StarWars.getFriends(human.friends)
             ->Future.map(list => Belt.List.map(list, asCharacterInterface))
             ->Future.map(list => Ok(list))
           ),
-          field("homePlanet", nullable(string), ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
+          field("homePlanet", string, ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
             human.homePlanet
           ),
         ]
@@ -70,22 +73,26 @@ and droidTypeLazy =
     Schema.(
       obj("Droid", ~description="A mechanical creature in the Star Wars universe.", ~fields=_ =>
         [
-          field("id", int, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) => droid.id),
-          field("name", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
+          field("id", nonnull(int), ~args=[], ~resolve=(_ctx, droid: StarWars.droid) => droid.id),
+          field("name", nonnull(string), ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
             droid.StarWars.name
           ),
           field(
             "appearsIn",
-            list(episodeEnum.fieldType),
+            nonnull(list(nonnull(episodeEnum.fieldType))),
             ~args=[],
             ~resolve=(_ctx, droid: StarWars.droid) =>
             droid.StarWars.appearsIn
           ),
-          field("primaryFunction", string, ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
+          field(
+            "primaryFunction", nonnull(string), ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
             droid.primaryFunction
           ),
           async_field(
-            "friends", list(characterInterface), ~args=[], ~resolve=(_ctx, droid: StarWars.droid) =>
+            "friends",
+            nonnull(list(nonnull(characterInterface))),
+            ~args=[],
+            ~resolve=(_ctx, droid: StarWars.droid) =>
             StarWars.getFriends(droid.friends)
             ->Future.map(list => Belt.List.map(list, asCharacterInterface))
             ->Future.map(list => Ok(list))
@@ -104,12 +111,12 @@ let query =
     query([
       field(
         "hero",
-        characterInterface,
+        nonnull(characterInterface),
         ~args=
           Arg.[
             arg(
               "episode",
-              nullable(episodeEnum.argType),
+              episodeEnum.argTyp,
               ~description=
                 "If omitted, returns the hero of the whole saga. "
                 ++ "If provided, returns the hero of that particular episode.",
@@ -123,8 +130,8 @@ let query =
       ),
       async_field(
         "human",
-        nullable(humanType),
-        ~args=Arg.[arg("id", int)],
+        humanType,
+        ~args=Arg.[arg("id", nonnull(int))],
         ~resolve=(_ctx, (), argId) => {
           let id = argId;
           StarWarsData.getHuman(id)->Future.map(human => Ok(human));
@@ -132,8 +139,8 @@ let query =
       ),
       async_field(
         "droid",
-        nullable(droidType),
-        ~args=Arg.[arg("id", int)],
+        droidType,
+        ~args=Arg.[arg("id", nonnull(int))],
         ~resolve=(_ctx, (), argId) => {
           let id = argId;
           StarWarsData.getDroid(id)->Future.map(droid => Ok(droid));
@@ -148,7 +155,7 @@ let updateCharacterResponse =
       [
         field(
           "error",
-          nullable(string),
+          string,
           ~args=[],
           ~resolve=(_, updateCharResult: StarWars.updateCharacterResult) =>
           switch (updateCharResult) {
@@ -159,7 +166,7 @@ let updateCharacterResponse =
         ),
         field(
           "character",
-          nullable(characterInterface),
+          characterInterface,
           ~args=[],
           ~resolve=(_, updateCharResult: StarWars.updateCharacterResult) =>
           switch (updateCharResult) {
@@ -176,12 +183,12 @@ let mutation =
     mutation([
       async_field(
         "updateCharacterName",
-        updateCharacterResponse,
-        ~args=Arg.[arg("characterId", int), arg("name", string)],
+        nonnull(updateCharacterResponse),
+        ~args=Arg.[arg("characterId", nonnull(int)), arg("name", nonnull(string))],
         ~resolve=(_ctx, (), charId, name) =>
         StarWarsData.updateCharacterName(charId, name)->Future.flatMap(Future.ok)
       ),
     ])
   );
 
-let schema: Schema.t(unit) = Schema.create(query, ~mutation);
+let schema: Schema.schema(unit) = Schema.create(query, ~mutation);
