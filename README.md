@@ -10,7 +10,7 @@
 - [ ] Schema 
   - [x] Query 
   - [x] Mutation 
-  - [ ] Async Fields
+  - [x] Async Fields
+  - [x] Directives
   - [ ] Validations
-  - [ ] Directives
   - [ ] Subscription
