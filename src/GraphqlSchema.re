@@ -203,7 +203,7 @@ module Make = (Io: IO) => {
       });
 
     let list = a => List(a);
-    let nonNull = a => NonNull(a);
+    let nonnull = a => NonNull(a);
   };
 
   type typ(_, _) =
@@ -281,7 +281,7 @@ module Make = (Io: IO) => {
           "Directs the executor to skip this field or fragment when the `if` argument is true.",
         ),
       locations: [`Field, `Fragment_spread, `Inline_fragment],
-      args: Arg.[arg("if", nonNull(boolean), ~description="Skipped when true.")],
+      args: Arg.[arg("if", nonnull(boolean), ~description="Skipped when true.")],
       resolve:
         fun
         | true => `Skip
@@ -296,7 +296,7 @@ module Make = (Io: IO) => {
           "Directs the executor to include this field or fragment only when the `if` argument is true.",
         ),
       locations: [`Field, `Fragment_spread, `Inline_fragment],
-      args: Arg.[arg("if", nonNull(boolean), ~description="Included when true.")],
+      args: Arg.[arg("if", nonnull(boolean), ~description="Included when true.")],
       resolve:
         fun
         | true => `Include
@@ -385,7 +385,7 @@ module Make = (Io: IO) => {
   let boolean: 'ctx. typ('ctx, option(bool)) =
     Scalar({name: "Boolean", description: None, serialize: bool => `Boolean(bool)});
   let list = typ => List(typ);
-  let nonNull = typ => NonNull(typ);
+  let nonnull = typ => NonNull(typ);
 
   module Introspection = {
     /* anyTyp, anyField and anyArg hide type parameters to avoid scope escaping errors */
