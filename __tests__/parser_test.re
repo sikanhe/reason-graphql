@@ -8,7 +8,7 @@ describe("Parse and print a graphql query", () => {
   let query = {|
     query MyQuery($id: Int, $another: [String!]!) { field {
                 hello: name
-                stringField(name:"test",nameagain:"\"testescaped\"")
+                stringField(name:"\"test\"",nameagain:"汉字")
         # Commentsssss
                 age(default: 4.5, a: [4, 5, 5])
         ... on Foo {
@@ -42,7 +42,7 @@ describe("Parse and print a graphql query", () => {
     let pretty = {|query MyQuery($id: Int, $another: [String!]!) {
   field {
     hello: name
-    stringField(name: "test", nameagain: "\"testescaped\"")
+    stringField(name: "\"test\"", nameagain: "汉字")
     age(default: 4.5, a: [4, 5, 5])
     ... on Foo {
       bar(h: {hello: 5, nested: {world: 1}})

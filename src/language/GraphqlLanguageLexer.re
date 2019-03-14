@@ -275,6 +275,18 @@ let readNumber = (body, start, line, column, prev) => {
   };
 };
 
+let char2hex = c =>
+  c >= 48 && c <= 57 ?
+    c - 48 : // 0-9
+    c >= 65 && c <= 70 ?
+      c - 55 : // c-F
+      c >= 97 && c <= 102 ?
+        c - 87 : // a-f
+        (-1);
+
+let uniCharCode = (a, b, c, d) =>
+  char2hex(a) lsl 12 lor char2hex(b) lsl 8 lor char2hex(c) lsl 4 lor char2hex(d);
+
 /**
  * Reads a string token from the source file.
  *
@@ -300,11 +312,11 @@ let readString = (body, start, line, column, prev) => {
         },
       }
     | c when Char.code(c) == 92 =>
-      let position = position + 1;
-      let code = body.[position]->Char.code;
+      let newPosition = ref(position + 1);
+      let code = body.[newPosition^]->Char.code;
       let value =
         value
-        ++ String.sub(body, chunkStart, position - chunkStart - 1)
+        ++ String.sub(body, chunkStart, newPosition^ - chunkStart - 1)
         ++ (
           switch (code) {
           | 34 => "\""
@@ -316,7 +328,28 @@ let readString = (body, start, line, column, prev) => {
           | 114 => "\r"
           | 116 => "\t"
           // u
-          | 117 => failwith("Handling unicode in string not implemented")
+          | 117 =>
+            let charCode =
+              uniCharCode(
+                body.[position + 1]->Char.code,
+                body.[position + 2]->Char.code,
+                body.[position + 3]->Char.code,
+                body.[position + 4]->Char.code,
+              );
+
+            if (charCode < 0) {
+              raise(
+                SyntaxError(
+                  "Invalid character escape sequence: "
+                  ++ "\\u"
+                  ++ String.sub(body, position + 1, position + 5)
+                  ++ ".",
+                ),
+              );
+            };
+
+            newPosition := newPosition^ + 4;
+            Char.chr(charCode) |> String.make(1);
           | _ =>
             raise(
               SyntaxError(
@@ -326,8 +359,8 @@ let readString = (body, start, line, column, prev) => {
           }
         );
 
-      let position = position + 1;
-      aux(value, position, position);
+      let nextPosition = newPosition^ + 1;
+      aux(value, nextPosition, nextPosition);
     | _ => aux(value, position + 1, chunkStart)
     };
   };
