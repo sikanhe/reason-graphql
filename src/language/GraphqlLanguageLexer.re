@@ -275,6 +275,14 @@ let readNumber = (body, start, line, column, prev) => {
   };
 };
 
+/**
+ * Converts a hex character to its integer value.
+ * '0' becomes 0, '9' becomes 9
+ * 'A' becomes 10, 'F' becomes 15
+ * 'a' becomes 10, 'f' becomes 15
+ *
+ * Returns -1 on error.
+ */
 let char2hex = c =>
   c >= 48 && c <= 57 ?
     c - 48 : // 0-9
@@ -284,6 +292,16 @@ let char2hex = c =>
         c - 87 : // a-f
         (-1);
 
+/**
+ * Converts four hexadecimal chars to the integer that the
+ * string represents. For example, uniCharCode('0','0','0','f')
+ * will return 15, and uniCharCode('0','0','f','f') returns 255.
+ *
+ * Returns a negative number on error, if a char was invalid.
+ *
+ * This is implemented by noting that char2hex() returns -1 on error,
+ * which means the result of ORing the char2hex() will also be negative.
+ */
 let uniCharCode = (a, b, c, d) =>
   char2hex(a) lsl 12 lor char2hex(b) lsl 8 lor char2hex(c) lsl 4 lor char2hex(d);
 
