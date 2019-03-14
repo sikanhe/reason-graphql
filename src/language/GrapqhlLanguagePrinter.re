@@ -1,7 +1,6 @@
 open GraphqlLanguageAst;
 
-let join = (list, seperator) =>
-  list |> Belt.List.keep(_, x => x !== "") |> String.concat(seperator);
+let join = (list, seperator) => Belt.List.keep(list, x => x !== "") |> String.concat(seperator);
 
 let wrap = (left, str, right) => str === "" ? "" : left ++ str ++ right;
 
@@ -19,7 +18,7 @@ let rec printValue: value => string =
   fun
   | `Int(int) => string_of_int(int)
   | `Float(float) => string_of_float(float)
-  | `String(string) => string
+  | `String(string) => string->Js.Json.string->Js.Json.stringify
   | `Boolean(bool) => string_of_bool(bool)
   | `Null => "null"
   | `Variable(string) => "$" ++ string
@@ -29,7 +28,7 @@ let rec printValue: value => string =
 
 and printObjectFields = fields => fields |> Belt.List.map(_, printObjectField) |> join(_, ", ")
 
-and printObjectField = ((k, v)) => k ++ ":" ++ printValue(v);
+and printObjectField = ((k, v)) => k ++ ": " ++ printValue(v);
 
 let rec printType =
   fun
@@ -39,17 +38,16 @@ let rec printType =
 
 let printVariableDef = ({variable, typ}: variableDefinition) =>
   printValue(variable) ++ ": " ++ printType(typ);
-let printVariables = vars => vars |> Belt.List.map(_, printVariableDef) |> join(_, ", ");
+let printVariables = vars => vars->Belt.List.map(printVariableDef)->join(", ");
 
 let printArgument = ((name, value)) => name ++ ": " ++ printValue(value);
 let printArguments = (args: list((string, value))) =>
-  args |> Belt.List.map(_, printArgument) |> join(_, ", ");
+  args->Belt.List.map(printArgument)->join(", ");
 
 let printDirective = ({name, arguments}: directive) =>
   "@" ++ name ++ wrap("(", printArguments(arguments), ")");
 
-let printDirectives = directives =>
-  directives |> Belt.List.map(_, printDirective) |> join(_, " ");
+let printDirectives = directives => directives->Belt.List.map(printDirective)->join(" ");
 
 let printOpt =
   fun

@@ -115,7 +115,7 @@ let positionAfterWhitespace = (lexer, startPosition) => {
       position;
     } else {
       switch (body.[position]) {
-      | char when int_of_char(char) == 0xFEFF /* BOM */ => position + 1
+      | bom when int_of_char(bom) == 0xFEFF => position + 1
       | ' '
       | ','
       | '\t' => aux(position + 1)
@@ -280,8 +280,66 @@ let readNumber = (body, start, line, column, prev) => {
  *
  * "([^"\\\u000A\u000D]|(\\(u[0-9a-fA-F]{4}|["\\/bfnrt])))*"
  */
-let readString = (_body, _start, _line, _column, _prev) =>
-  failwith("Read String is Not Implemented");
+let readString = (body, start, line, column, prev) => {
+  let rec aux = (value, position, chunkStart) => {
+    if (position >= String.length(body)) {
+      raise(SyntaxError("Unterminated string"));
+    };
+
+    switch (body.[position]) {
+    | '\n' => raise(SyntaxError("Unterminated string"))
+    | '"' => {
+        kind: STRING,
+        value: value ++ String.sub(body, chunkStart, position - chunkStart),
+        prev,
+        location: {
+          line,
+          column,
+          start,
+          end_: position + 1,
+        },
+      }
+    | c when Char.code(c) == 92 =>
+      let position = position + 1;
+      let code = body.[position]->Char.code;
+      let value =
+        value
+        ++ String.sub(body, chunkStart, position - chunkStart - 1)
+        ++ (
+          switch (code) {
+          | 34 => "\""
+          | 47 => "/"
+          | 92 => "\\"
+          | 98 => "\b"
+          | 102 => "\\f"
+          | 110 => "\n"
+          | 114 => "\r"
+          | 116 => "\t"
+          // u
+          | 117 => failwith("Handling unicode in string not implemented")
+          | _ =>
+            raise(
+              SyntaxError(
+                "Invalid character escape sequence: \\" ++ (Char.chr(code) |> String.make(1)),
+              ),
+            )
+          }
+        );
+
+      let position = position + 1;
+      aux(value, position, position);
+    | _ => aux(value, position + 1, chunkStart)
+    };
+  };
+
+  aux("", start + 1, start + 1);
+};
+
+/**
+ * Reads a block string token from the source file.
+ */
+let readBlockString = (_body, _start, _line, _column, _prev) =>
+  failwith("Read Block String is Not Implemented");
 
 /**
  * Gets the next token from the source starting at the given position.

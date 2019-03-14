@@ -8,10 +8,11 @@ describe("Parse and print a graphql query", () => {
   let query = {|
     query MyQuery($id: Int, $another: [String!]!) { field {
                 hello: name
+                stringField(name:"test",nameagain:"\"testescaped\"")
         # Commentsssss
                 age(default: 4.5, a: [4, 5, 5])
         ... on Foo {
-                bar(h: { hello: 5, nested: { world: 1} })
+                bar(h:{hello:5,nested:{world:1}})
                       ... on BarType {
                 baz    @skip(if: $another) @skip(if: $another)
                 ...bazFields
@@ -41,9 +42,10 @@ describe("Parse and print a graphql query", () => {
     let pretty = {|query MyQuery($id: Int, $another: [String!]!) {
   field {
     hello: name
+    stringField(name: "test", nameagain: "\"testescaped\"")
     age(default: 4.5, a: [4, 5, 5])
     ... on Foo {
-      bar(h: {nested:{world:1}, hello:5})
+      bar(h: {hello: 5, nested: {world: 1}})
       ... on BarType {
         baz @skip(if: $another) @skip(if: $another)
         ...bazFields
@@ -57,7 +59,7 @@ fragment bazFields on FragmentModel {
   baz {
     g @skip(if: $another)
     ... on Bar {
-      b @skip(if: $another) @skip(if: {a:[1, 3, 4]})
+      b @skip(if: $another) @skip(if: {a: [1, 3, 4]})
       c
       a
     }
