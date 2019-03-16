@@ -35,7 +35,7 @@ describe("Parse and print a graphql query", () => {
     }
  |};
 
-  let document = Parser.parse(query);
+  let document = Parser.parseExn(query);
   let out = document->Printer.print;
 
   test("Should prettify the query correctly", () => {
