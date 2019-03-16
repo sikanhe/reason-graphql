@@ -81,6 +81,8 @@ module Make = (Io: IO) => {
           | Ok(x') => Ok(f(x'))
           | Error(_) as err => err,
         );
+
+      let let_ = bind;
     };
 
     let rec mapSerial = (~memo=[], list, f) =>
@@ -91,10 +93,7 @@ module Make = (Io: IO) => {
 
     let mapParalell = (list, f) => list->List.map(f)->all;
 
-    module Infix = {
-      let (>>|) = map;
-      let (>>=?) = Result.bind;
-    };
+    let let_ = bind;
   };
 
   type deprecation =
@@ -1316,8 +1315,6 @@ module Make = (Io: IO) => {
         };
   };
 
-  open Io.Infix;
-
   let matchesTypeCondition = (typeCondition: string, obj: obj('ctx, 'src)) =>
     typeCondition == obj.name
     || Belt.List.some(obj.abstracts^, abstract => abstract.name == typeCondition);
@@ -1452,10 +1449,13 @@ module Make = (Io: IO) => {
         )
       ) {
       | Ok(unlifted) =>
-        fieldDef.lift(unlifted)->Io.Result.mapError(err => `ResolveError((err, [])))
-        >>=? (resolved => resolveValue(executionContext, resolved, field, fieldDef.typ))
-        >>| (
-          fun
+        let%Io.Result resolved =
+          fieldDef.lift(unlifted)->Io.Result.mapError(err => `ResolveError((err, [])));
+
+        let%Io resolvedValue = resolveValue(executionContext, resolved, field, fieldDef.typ);
+
+        Io.return(
+          switch (resolvedValue) {
           | Ok(value) => Ok((name, value))
           | Error(`ArgumentError(_) | `ValidationError(_)) as error => error
           | Error(`ResolveError(_)) as error =>
@@ -1463,7 +1463,8 @@ module Make = (Io: IO) => {
             | NonNull(_) => error
             | _ => Ok((name, `Null))
             }
-        )
+          },
+        );
 
       | Error(err) => Io.error(`ArgumentError(err))
       };
@@ -1499,31 +1500,29 @@ module Make = (Io: IO) => {
       : Io.t(Result.t(Ast.constValue, [> executeError])) =>
     switch (operation.operationType) {
     | Query =>
-      /* TODO: Make parallell */
-
-      Io.return(
-        collectFields(executionContext, executionContext.schema.query, operation.selectionSet),
-      )
-      ->Io.Result.mapError(e => `ArgumentError(e))
-      >>=? (
-        fields => (
-          resolveFields(executionContext, (), executionContext.schema.query, fields):
-            Io.t(Result.t(Ast.constValue, resolveError)) :>
-            Io.t(Result.t(Ast.constValue, [> executeError]))
+      let%Io.Result fields =
+        Io.return(
+          collectFields(executionContext, executionContext.schema.query, operation.selectionSet),
         )
-      )
+        ->Io.Result.mapError(e => `ArgumentError(e));
+
+      (
+        resolveFields(executionContext, (), executionContext.schema.query, fields):
+          Io.t(Result.t(Ast.constValue, resolveError)) :>
+          Io.t(Result.t(Ast.constValue, [> executeError]))
+      );
     | Mutation =>
       switch (executionContext.schema.mutation) {
       | Some(mutation) =>
-        Io.return(collectFields(executionContext, mutation, operation.selectionSet))
-        ->Io.Result.mapError(e => `ArgumentError(e))
-        >>=? (
-          fields => (
-            resolveFields(executionContext, (), mutation, fields):
-              Io.t(Result.t(Ast.constValue, resolveError)) :>
-              Io.t(Result.t(Ast.constValue, [> executeError]))
-          )
-        )
+        let%Io.Result fields =
+          Io.return(collectFields(executionContext, mutation, operation.selectionSet))
+          ->Io.Result.mapError(e => `ArgumentError(e));
+
+        (
+          resolveFields(executionContext, (), mutation, fields):
+            Io.t(Result.t(Ast.constValue, resolveError)) :>
+            Io.t(Result.t(Ast.constValue, [> executeError]))
+        );
       | None => Io.error(`Mutations_not_configured)
       }
     | _ => failwith("Subscription Not implemented")
@@ -1592,8 +1591,7 @@ module Make = (Io: IO) => {
       )
       |> Belt.List.headExn;
 
-    result
-    >>| (
+    result->Io.map(
       fun
       | Ok(res) => okResponse(res)
       | Error(`No_operation_found) => errorResponse("No operation found")
@@ -1603,7 +1601,7 @@ module Make = (Io: IO) => {
       | Error(`Mutations_not_configured) => errorResponse("Mutations not configured")
       | Error(`ValidationError(msg)) => errorResponse(msg)
       | Error(`ArgumentError(msg)) => errorResponse(msg)
-      | Error(`ResolveError(msg, path)) => errorResponse(msg, ~path)
+      | Error(`ResolveError(msg, path)) => errorResponse(msg, ~path),
     );
   };
 
