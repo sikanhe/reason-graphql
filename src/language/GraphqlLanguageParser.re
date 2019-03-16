@@ -1,4 +1,5 @@
 open GraphqlLanguageAst;
+open GraphqlLanguageError;
 module Lexer = GraphqlLanguageLexer;
 
 /**
@@ -9,8 +10,10 @@ let expect = (lexer: Lexer.t, kind: Lexer.tokenKind) =>
   if (lexer.token.kind == kind) {
     Lexer.advance(lexer);
   } else {
-    failwith(
-      "Expected" ++ Lexer.strOfTokenKind(kind) ++ ", found " ++ Lexer.printToken(lexer.token),
+    raise(
+      SyntaxError(
+        "Expected" ++ Lexer.strOfTokenKind(kind) ++ ", found " ++ Lexer.printToken(lexer.token),
+      ),
     );
   };
 
@@ -45,7 +48,7 @@ let skipKeyword = (lexer: Lexer.t, value: string): bool =>
  */
 let expectKeyword = (lexer: Lexer.t, value: string) =>
   if (!skipKeyword(lexer, value)) {
-    failwith("Expected " ++ value ++ ", found " ++ Lexer.printToken(lexer.token));
+    raise(SyntaxError("Expected " ++ value ++ ", found " ++ Lexer.printToken(lexer.token)));
   };
 
 /**
@@ -58,7 +61,8 @@ let unexpected = (~atToken=?, lexer: Lexer.t) => {
     | Some(tok) => tok
     | None => lexer.token
     };
-  failwith("Unexpected " ++ Lexer.printToken(token));
+    
+  raise(SyntaxError("Unexpected " ++ Lexer.printToken(token)));
 };
 
 /**

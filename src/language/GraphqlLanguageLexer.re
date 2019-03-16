@@ -1,3 +1,5 @@
+open GraphqlLanguageError;
+
 type tokenKind =
   | SOF
   | EOF
@@ -78,8 +80,6 @@ let tok = (~value="", ~prev=?, kind, ~start, ~end_, ~line, ~column) => {
   prev,
   value,
 };
-
-exception SyntaxError(string);
 
 /* (line:col) kind: <token.kind>, value: <token.value> */
 let printToken = token => {
@@ -459,18 +459,16 @@ let sof = tok(SOF, ~start=0, ~end_=0, ~column=0, ~line=1);
 
 let make = body => {body, lastToken: sof, token: sof, line: 1, lineStart: 0};
 
-let lookahead = lexer => {
-  let token = lexer.token;
-  switch (token.kind) {
-  | EOF => token
-  | _ =>
-    let tok = ref(readToken(lexer, token));
-    while (tok^.kind == COMMENT) {
-      tok := readToken(lexer, tok^);
+let lookahead =
+  fun
+  | {token: {kind: EOF} as token} => token
+  | {token} as lexer => {
+      let currToken = ref(readToken(lexer, token));
+      while (currToken^.kind == COMMENT) {
+        currToken := readToken(lexer, currToken^);
+      };
+      currToken^;
     };
-    tok^;
-  };
-};
 
 let advance = lexer => {
   lexer.lastToken = lexer.token;
