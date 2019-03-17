@@ -106,8 +106,7 @@ let printToken = token => {
   );
 };
 
-let safeMatch = (body, position, char) =>
-  position < String.length(body) && body.[position] == char;
+let isChar = (body, position, char) => position < String.length(body) && body.[position] == char;
 
 /**
  * Reads from body starting at startPosition until it finds a non-whitespace
@@ -131,7 +130,7 @@ let positionAfterWhitespace = (lexer, startPosition) => {
         lexer.lineStart = newPosition;
         aux(newPosition);
       | '\r' =>
-        let newPosition = safeMatch(body, position + 1, '\n') ? position + 2 : position + 1;
+        let newPosition = isChar(body, position + 1, '\n') ? position + 2 : position + 1;
 
         lexer.line = lexer.line + 1;
         lexer.lineStart = newPosition;
@@ -254,7 +253,7 @@ let readNumber = (body, start, line, column, prev): result(token) => {
     };
 
   let%Result () =
-    if (safeMatch(body, position^, '.')) {
+    if (isChar(body, position^, '.')) {
       kind := FLOAT;
       position := position^ + 1;
       let%Result pos = readDigits(body, position^);
@@ -264,11 +263,11 @@ let readNumber = (body, start, line, column, prev): result(token) => {
     };
 
   let%Result () =
-    if (safeMatch(body, position^, 'E') || safeMatch(body, position^, 'e')) {
+    if (isChar(body, position^, 'E') || isChar(body, position^, 'e')) {
       kind := FLOAT;
       position := position^ + 1;
 
-      if (safeMatch(body, position^, '+') || safeMatch(body, position^, '-')) {
+      if (isChar(body, position^, '+') || isChar(body, position^, '-')) {
         position := position^ + 1;
       };
 
@@ -434,7 +433,7 @@ let readToken = (lexer, prevToken): result(token) => {
     | '(' => Ok({kind: PAREN_L, location, value: "", prev})
     | ')' => Ok({kind: PAREN_R, location, value: "", prev})
     | '.' =>
-      if (safeMatch(body, position + 1, '.') && safeMatch(body, position + 2, '.')) {
+      if (isChar(body, position + 1, '.') && isChar(body, position + 2, '.')) {
         Ok({
           kind: SPREAD,
           location: {
