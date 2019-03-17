@@ -20,7 +20,7 @@ describe("Basic Queries", () => {
       |> Schema.constValueToJson;
 
     schema
-    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.execute(~document=Parser.parseExn(query), ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;
@@ -62,7 +62,7 @@ describe("Basic Queries", () => {
       |> Schema.constValueToJson;
 
     schema
-    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.execute(~document=Parser.parseExn(query), ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;
@@ -152,7 +152,7 @@ describe("Nested Queries", () =>
       |> Schema.constValueToJson;
 
     schema
-    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.execute(~document=Parser.parseExn(query), ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;
@@ -178,7 +178,7 @@ describe("Mutation operation", () => {
     schema
     |> Schema.execute(
          _,
-         ~document=Parser.parse(mutation),
+         ~document=Parser.parseExn(mutation),
          ~ctx=(),
          ~variables=[("id", `Int(1000)), ("name", `String("Sikan Skywalker"))],
        )
@@ -223,7 +223,7 @@ describe("Using aliases to change the key in the response", () => {
       |> Schema.constValueToJson;
 
     schema
-    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.execute(~document=Parser.parseExn(query), ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;
@@ -252,7 +252,7 @@ describe("Using aliases to change the key in the response", () => {
       |> Schema.constValueToJson;
 
     schema
-    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.execute(~document=Parser.parseExn(query), ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;
@@ -292,7 +292,7 @@ describe("Uses fragments to express more complex queries", () => {
       |> Schema.constValueToJson;
 
     schema
-    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.execute(~document=Parser.parseExn(query), ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;
@@ -333,7 +333,7 @@ describe("Uses fragments to express more complex queries", () => {
       |> Schema.constValueToJson;
 
     schema
-    ->Schema.execute(~document=Parser.parse(query), ~ctx=())
+    ->Schema.execute(~document=Parser.parseExn(query), ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;

@@ -29,6 +29,7 @@
     "bs-platform": "^5.0.0-dev.4"
   },
   "dependencies": {
+    "let-anything": "^1.0.3",
     "reason-future": "^2.4.0"
   }
 }

@@ -1,0 +1,1 @@
+type t = SyntaxError(string)

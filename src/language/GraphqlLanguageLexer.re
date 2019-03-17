@@ -1,3 +1,11 @@
+module Result = {
+  include Belt.Result;
+  let let_ = flatMap;
+};
+
+type result('a) = Result.t('a, GraphqlLanguageError.t);
+let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
+
 type tokenKind =
   | SOF
   | EOF
@@ -79,8 +87,6 @@ let tok = (~value="", ~prev=?, kind, ~start, ~end_, ~line, ~column) => {
   value,
 };
 
-exception SyntaxError(string);
-
 /* (line:col) kind: <token.kind>, value: <token.value> */
 let printToken = token => {
   let kindStr = strOfTokenKind(token.kind);
@@ -100,8 +106,7 @@ let printToken = token => {
   );
 };
 
-let safeMatch = (body, position, char) =>
-  position < String.length(body) && body.[position] == char;
+let isChar = (body, position, char) => position < String.length(body) && body.[position] == char;
 
 /**
  * Reads from body starting at startPosition until it finds a non-whitespace
@@ -125,7 +130,7 @@ let positionAfterWhitespace = (lexer, startPosition) => {
         lexer.lineStart = newPosition;
         aux(newPosition);
       | '\r' =>
-        let newPosition = safeMatch(body, position + 1, '\n') ? position + 2 : position + 1;
+        let newPosition = isChar(body, position + 1, '\n') ? position + 2 : position + 1;
 
         lexer.line = lexer.line + 1;
         lexer.lineStart = newPosition;
@@ -203,16 +208,16 @@ let readComment = (body, start, line, column, prev): token => {
   };
 };
 
-let readDigits = (body, startingPosition): int => {
+let readDigits = (body, startingPosition): result(int) => {
   let rec aux = (body, pos) =>
     if (pos >= String.length(body)) {
-      pos;
+      Result.Ok(pos);
     } else {
       switch (body.[pos]) {
       | '0'..'9' => aux(body, pos + 1)
       | c when pos === startingPosition =>
-        raise(SyntaxError("Invalid number, expected digit but got: " ++ String.make(1, c)))
-      | _ => pos
+        syntaxError("Invalid number, expected digit but got: " ++ String.make(1, c))
+      | _ => Ok(pos)
       };
     };
 
@@ -226,7 +231,7 @@ let readDigits = (body, startingPosition): int => {
  * Int:   -?(0|[1-9][0-9]*)
  * Float: -?(0|[1-9][0-9]*)(\.[0-9]+)?((E|e)(+|-)?[0-9]+)?
  */
-let readNumber = (body, start, line, column, prev) => {
+let readNumber = (body, start, line, column, prev): result(token) => {
   let kind = ref(INT);
   let position = ref(start);
 
@@ -234,35 +239,45 @@ let readNumber = (body, start, line, column, prev) => {
     position := position^ + 1;
   };
 
-  if (body.[position^] == '0') {
-    position := position^ + 1;
-    switch (body.[position^]) {
-    | '0'..'9' as char =>
-      raise(SyntaxError("Invalid number, unexpected digit after 0: " ++ String.make(1, char)))
-    | _ => ()
-    };
-  } else {
-    position := readDigits(body, position^);
-  };
-
-  if (safeMatch(body, position^, '.')) {
-    kind := FLOAT;
-    position := position^ + 1;
-    position := readDigits(body, position^);
-  };
-
-  if (safeMatch(body, position^, 'E') || safeMatch(body, position^, 'e')) {
-    kind := FLOAT;
-    position := position^ + 1;
-
-    if (safeMatch(body, position^, '+') || safeMatch(body, position^, '-')) {
+  let%Result () =
+    if (body.[position^] == '0') {
       position := position^ + 1;
+      switch (body.[position^]) {
+      | '0'..'9' as char =>
+        syntaxError("Invalid number, unexpected digit after 0: " ++ String.make(1, char))
+      | _ => Ok()
+      };
+    } else {
+      let%Result pos = readDigits(body, position^);
+      Ok(position := pos);
     };
 
-    position := readDigits(body, position^);
-  };
+  let%Result () =
+    if (isChar(body, position^, '.')) {
+      kind := FLOAT;
+      position := position^ + 1;
+      let%Result pos = readDigits(body, position^);
+      Ok(position := pos);
+    } else {
+      Ok();
+    };
 
-  {
+  let%Result () =
+    if (isChar(body, position^, 'E') || isChar(body, position^, 'e')) {
+      kind := FLOAT;
+      position := position^ + 1;
+
+      if (isChar(body, position^, '+') || isChar(body, position^, '-')) {
+        position := position^ + 1;
+      };
+
+      let%Result pos = readDigits(body, position^);
+      Ok(position := pos);
+    } else {
+      Ok();
+    };
+
+  Ok({
     kind: kind^,
     location: {
       start,
@@ -272,7 +287,7 @@ let readNumber = (body, start, line, column, prev) => {
     },
     prev,
     value: String.sub(body, start, position^ - start),
-  };
+  });
 };
 
 /**
@@ -310,15 +325,19 @@ let uniCharCode = (a, b, c, d) =>
  *
  * "([^"\\\u000A\u000D]|(\\(u[0-9a-fA-F]{4}|["\\/bfnrt])))*"
  */
-let readString = (body, start, line, column, prev) => {
+let readString = (body, start, line, column, prev): result(token) => {
   let rec aux = (value, position, chunkStart) => {
-    if (position >= String.length(body)) {
-      raise(SyntaxError("Unterminated string"));
-    };
+    let%Result () =
+      if (position >= String.length(body)) {
+        syntaxError("Unterminated string");
+      } else {
+        Ok();
+      };
 
     switch (body.[position]) {
-    | '\n' => raise(SyntaxError("Unterminated string"))
-    | '"' => {
+    | '\n' => syntaxError("Unterminated string")
+    | '"' =>
+      Ok({
         kind: STRING,
         value: value ++ String.sub(body, chunkStart, position - chunkStart),
         prev,
@@ -328,54 +347,48 @@ let readString = (body, start, line, column, prev) => {
           start,
           end_: position + 1,
         },
-      }
+      })
     | c when Char.code(c) == 92 =>
       let newPosition = ref(position + 1);
       let code = body.[newPosition^]->Char.code;
-      let value =
-        value
-        ++ String.sub(body, chunkStart, newPosition^ - chunkStart - 1)
-        ++ (
-          switch (code) {
-          | 34 => "\""
-          | 47 => "/"
-          | 92 => "\\"
-          | 98 => "\b"
-          | 102 => "\\f"
-          | 110 => "\n"
-          | 114 => "\r"
-          | 116 => "\t"
-          // u
-          | 117 =>
-            let charCode =
-              uniCharCode(
-                body.[position + 1]->Char.code,
-                body.[position + 2]->Char.code,
-                body.[position + 3]->Char.code,
-                body.[position + 4]->Char.code,
-              );
+      let%Result rest =
+        switch (code) {
+        | 34 => Ok("\"")
+        | 47 => Ok("/")
+        | 92 => Ok("\\")
+        | 98 => Ok("\b")
+        | 102 => Ok("\\f")
+        | 110 => Ok("\n")
+        | 114 => Ok("\r")
+        | 116 => Ok("\t")
+        // u
+        | 117 =>
+          let charCode =
+            uniCharCode(
+              body.[position + 1]->Char.code,
+              body.[position + 2]->Char.code,
+              body.[position + 3]->Char.code,
+              body.[position + 4]->Char.code,
+            );
 
-            if (charCode < 0) {
-              raise(
-                SyntaxError(
-                  "Invalid character escape sequence: "
-                  ++ "\\u"
-                  ++ String.sub(body, position + 1, position + 5)
-                  ++ ".",
-                ),
-              );
-            };
-
+          if (charCode < 0) {
+            syntaxError(
+              "Invalid character escape sequence: "
+              ++ "\\u"
+              ++ String.sub(body, position + 1, position + 5)
+              ++ ".",
+            );
+          } else {
             newPosition := newPosition^ + 4;
-            Char.chr(charCode) |> String.make(1);
-          | _ =>
-            raise(
-              SyntaxError(
-                "Invalid character escape sequence: \\" ++ (Char.chr(code) |> String.make(1)),
-              ),
-            )
-          }
-        );
+            Ok(Char.chr(charCode) |> String.make(1));
+          };
+
+        | _ =>
+          syntaxError(
+            "Invalid character escape sequence: \\" ++ (Char.chr(code) |> String.make(1)),
+          )
+        };
+      let value = value ++ String.sub(body, chunkStart, newPosition^ - chunkStart - 1) ++ rest;
 
       let nextPosition = newPosition^ + 1;
       aux(value, nextPosition, nextPosition);
@@ -389,8 +402,8 @@ let readString = (body, start, line, column, prev) => {
 /**
  * Reads a block string token from the source file.
  */
-let readBlockString = (_body, _start, _line, _column, _prev) =>
-  failwith("Read Block String is Not Implemented");
+// TODO:
+// let readBlockString = (_body, _start, _line, _column, _prev) =>
 
 /**
  * Gets the next token from the source starting at the given position.
@@ -399,7 +412,7 @@ let readBlockString = (_body, _start, _line, _column, _prev) =>
  * punctuators immediately or calls the appropriate helper function for more
  * complicated tokens.
  */
-let readToken = (lexer, prevToken) => {
+let readToken = (lexer, prevToken): result(token) => {
   let {body} = lexer;
   let length = String.length(body);
   let position = positionAfterWhitespace(lexer, prevToken.location.end_);
@@ -411,17 +424,17 @@ let readToken = (lexer, prevToken) => {
   let location = {start: position, end_: position + 1, line, column};
 
   if (position >= length) {
-    {kind: EOF, location, prev: Some(prevToken), value: ""};
+    Ok({kind: EOF, location, prev: Some(prevToken), value: ""});
   } else {
     switch (body.[position]) {
-    | '!' => {kind: BANG, location, value: "", prev}
-    | '$' => {kind: DOLLAR, location, value: "", prev}
-    | '&' => {kind: AMP, location, value: "", prev}
-    | '(' => {kind: PAREN_L, location, value: "", prev}
-    | ')' => {kind: PAREN_R, location, value: "", prev}
+    | '!' => Ok({kind: BANG, location, value: "", prev})
+    | '$' => Ok({kind: DOLLAR, location, value: "", prev})
+    | '&' => Ok({kind: AMP, location, value: "", prev})
+    | '(' => Ok({kind: PAREN_L, location, value: "", prev})
+    | ')' => Ok({kind: PAREN_R, location, value: "", prev})
     | '.' =>
-      if (safeMatch(body, position + 1, '.') && safeMatch(body, position + 2, '.')) {
-        {
+      if (isChar(body, position + 1, '.') && isChar(body, position + 2, '.')) {
+        Ok({
           kind: SPREAD,
           location: {
             ...location,
@@ -429,28 +442,28 @@ let readToken = (lexer, prevToken) => {
           },
           value: "",
           prev,
-        };
+        });
       } else if (position + 1 >= String.length(body)) {
-        raise(SyntaxError("Unexpected End of File"));
+        syntaxError("Unexpected End of File");
       } else {
-        raise(SyntaxError("Unexpected Character" ++ String.make(1, body.[position + 1])));
+        syntaxError("Unexpected Character" ++ String.make(1, body.[position + 1]));
       }
-    | ':' => {kind: COLON, location, value: "", prev}
-    | '=' => {kind: EQUALS, location, value: "", prev}
-    | '@' => {kind: AT, location, value: "", prev}
-    | '[' => {kind: BRACKET_L, location, value: "", prev}
-    | ']' => {kind: BRACKET_R, location, value: "", prev}
-    | '{' => {kind: BRACE_L, location, value: "", prev}
-    | '|' => {kind: PIPE, location, value: "", prev}
-    | '}' => {kind: BRACE_R, location, value: "", prev}
+    | ':' => Ok({kind: COLON, location, value: "", prev})
+    | '=' => Ok({kind: EQUALS, location, value: "", prev})
+    | '@' => Ok({kind: AT, location, value: "", prev})
+    | '[' => Ok({kind: BRACKET_L, location, value: "", prev})
+    | ']' => Ok({kind: BRACKET_R, location, value: "", prev})
+    | '{' => Ok({kind: BRACE_L, location, value: "", prev})
+    | '|' => Ok({kind: PIPE, location, value: "", prev})
+    | '}' => Ok({kind: BRACE_R, location, value: "", prev})
     | 'A'..'Z'
     | 'a'..'z'
-    | '_' => readName(body, position, line, column, prev)
+    | '_' => Ok(readName(body, position, line, column, prev))
     | '0'..'9'
     | '-' => readNumber(body, position, line, column, prev)
     | '"' => readString(body, position, line, column, prev)
-    | '#' => readComment(body, position, line, column, prev)
-    | char => raise(SyntaxError("Unexpected Character" ++ String.make(1, char)))
+    | '#' => Ok(readComment(body, position, line, column, prev))
+    | char => syntaxError("Unexpected Character" ++ String.make(1, char))
     };
   };
 };
@@ -459,20 +472,30 @@ let sof = tok(SOF, ~start=0, ~end_=0, ~column=0, ~line=1);
 
 let make = body => {body, lastToken: sof, token: sof, line: 1, lineStart: 0};
 
-let lookahead = lexer => {
-  let token = lexer.token;
-  switch (token.kind) {
-  | EOF => token
-  | _ =>
-    let tok = ref(readToken(lexer, token));
-    while (tok^.kind == COMMENT) {
-      tok := readToken(lexer, tok^);
+let lookahead =
+  fun
+  | {token: {kind: EOF} as token} => Result.Ok(token)
+  | {token} as lexer => {
+      let rec skipComment = currToken => {
+        let%Result currToken' = readToken(lexer, currToken);
+        if (currToken'.kind == COMMENT) {
+          skipComment(currToken');
+        } else {
+          Ok(currToken');
+        };
+      };
+
+      // let currToken = readToken(lexer, token);
+      // while (currToken^.kind == COMMENT) {
+      //   currToken := readToken(lexer, currToken^);
+      // };
+      // currToken^;
+      skipComment(token);
     };
-    tok^;
-  };
-};
 
 let advance = lexer => {
   lexer.lastToken = lexer.token;
-  lexer.token = lookahead(lexer);
+  let%Result token = lookahead(lexer);
+  lexer.token = token;
+  Ok(token);
 };
