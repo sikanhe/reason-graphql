@@ -402,8 +402,8 @@ let readString = (body, start, line, column, prev): result(token) => {
 /**
  * Reads a block string token from the source file.
  */
-let readBlockString = (_body, _start, _line, _column, _prev) =>
-  failwith("Read Block String is Not Implemented");
+// TODO:
+// let readBlockString = (_body, _start, _line, _column, _prev) =>
 
 /**
  * Gets the next token from the source starting at the given position.

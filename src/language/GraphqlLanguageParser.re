@@ -486,19 +486,20 @@ let parseDefinition = (lexer: Lexer.t) =>
     | "mutation"
     | "subscription"
     | "fragment" => parseExecutableDefinition(lexer)
-    | "schema"
-    | "scalar"
-    | "type"
-    | "interface"
-    | "union"
-    | "enum"
-    | "input"
-    | "directive" => failwith("implement type system defintion")
-    | "extend" => failwith("implmeent type system extension")
+    // TODO: implement SDL  parsing
+    // | "schema"
+    // | "scalar"
+    // | "type"
+    // | "interface"
+    // | "union"
+    // | "enum"
+    // | "input"
+    // | "directive" =>
+    // | "extend" =>
     | _ => unexpected(lexer)
     }
   | BRACE_L => parseExecutableDefinition(lexer)
-  | _ => failwith("implement")
+  | _ => unexpected(lexer)
   };
 
 /**
