@@ -484,12 +484,6 @@ let lookahead =
           Ok(currToken');
         };
       };
-
-      // let currToken = readToken(lexer, token);
-      // while (currToken^.kind == COMMENT) {
-      //   currToken := readToken(lexer, currToken^);
-      // };
-      // currToken^;
       skipComment(token);
     };
 
