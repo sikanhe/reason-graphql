@@ -62,7 +62,6 @@ type location = {
 
 type t = {
   body: string,
-  length: int,
   // mutable lastToken: token,
   mutable token: (token, location),
   mutable line: int,
@@ -94,10 +93,10 @@ let isChar = (body, position, char) => position < String.length(body) && body.[p
  * character, then returns the position of that character for lexing.
  */
 let positionAfterWhitespace = (lexer, startPosition) => {
-  let {body, length} = lexer;
+  let {body} = lexer;
 
   let rec aux = position =>
-    if (position >= length) {
+    if (position >= String.length(body)) {
       position;
     } else {
       switch (body.[position]) {
@@ -362,7 +361,7 @@ let readString = (body, start, line, column): result((token, location)) => {
  * complicated tokens.
  */
 let readToken = (lexer, (prevToken, prevTokenLocation)): result((token, location)) => {
-  let {body, length} = lexer;
+  let {body} = lexer;
   let position = positionAfterWhitespace(lexer, prevTokenLocation.end_);
   let line = lexer.line;
   let column = 1 + position - lexer.lineStart;
@@ -371,7 +370,7 @@ let readToken = (lexer, (prevToken, prevTokenLocation)): result((token, location
 
   let location = {start: position, end_: position + 1, line, column};
 
-  if (position >= length) {
+  if (position >= String.length(body)) {
     Ok((EndOfFile, location));
   } else {
     switch (body.[position]) {
@@ -410,9 +409,12 @@ let readToken = (lexer, (prevToken, prevTokenLocation)): result((token, location
   };
 };
 
-let sof = (StartOfFile, {start: 0, end_: 0, column: 0, line: 1});
-
-let make = body => {body, length: String.length(body), token: sof, line: 1, lineStart: 0};
+let make = body => {
+  body,
+  token: (StartOfFile, {start: 0, end_: 0, column: 0, line: 1}),
+  line: 1,
+  lineStart: 0,
+};
 
 let lookahead =
   fun
