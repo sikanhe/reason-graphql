@@ -6,54 +6,52 @@ module Result = {
 type result('a) = Result.t('a, GraphqlLanguageError.t);
 let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
 
-module Token = {
-  type t =
-    | StartOfFile
-    | EndOfFile
-    | Bang
-    | Dollar
-    | Amp
-    | ParenOpen
-    | ParenClose
-    | Spread
-    | Colon
-    | Equals
-    | At
-    | BracketOpen
-    | BracketClose
-    | BraceOpen
-    | BraceClose
-    | Pipe
-    | Name(string)
-    | Int(string)
-    | Float(string)
-    | String(string)
-    | Comment(string);
+type token =
+  | StartOfFile
+  | EndOfFile
+  | Bang
+  | Dollar
+  | Amp
+  | ParenOpen
+  | ParenClose
+  | Spread
+  | Colon
+  | Equals
+  | At
+  | BracketOpen
+  | BracketClose
+  | BraceOpen
+  | BraceClose
+  | Pipe
+  | Name(string)
+  | Int(string)
+  | Float(string)
+  | String(string)
+  | Comment(string);
 
-  let tokenKind =
-    fun
-    | StartOfFile => "<SOF>"
-    | EndOfFile => "<EOF>"
-    | Bang => "!"
-    | Dollar => "$"
-    | Amp => "$"
-    | ParenOpen => "("
-    | ParenClose => ")"
-    | Spread => "..."
-    | Colon => ":"
-    | Equals => "="
-    | At => "@"
-    | BracketOpen => "["
-    | BracketClose => "]"
-    | BraceOpen => "{"
-    | BraceClose => "}"
-    | Pipe => "|"
-    | Name(_) => "Name"
-    | Int(_) => "Int"
-    | Float(_) => "Float"
-    | String(_) => "String"
-    | Comment(_) => "Comment";
-};
+let tokenKind =
+  fun
+  | StartOfFile => "<SOF>"
+  | EndOfFile => "<EOF>"
+  | Bang => "!"
+  | Dollar => "$"
+  | Amp => "$"
+  | ParenOpen => "("
+  | ParenClose => ")"
+  | Spread => "..."
+  | Colon => ":"
+  | Equals => "="
+  | At => "@"
+  | BracketOpen => "["
+  | BracketClose => "]"
+  | BraceOpen => "{"
+  | BraceClose => "}"
+  | Pipe => "|"
+  | Name(_) => "Name"
+  | Int(_) => "Int"
+  | Float(_) => "Float"
+  | String(_) => "String"
+  | Comment(_) => "Comment";
 
 type location = {
   start: int,
@@ -62,24 +60,17 @@ type location = {
   column: int,
 };
 
-// type token = {
-//   kind: tokenKind,
-//   location,
-//   prev: option(token),
-//   value: string,
-// };
-
 type t = {
   body: string,
   length: int,
   // mutable lastToken: token,
-  mutable token: (Token.t, location),
+  mutable token: (token, location),
   mutable line: int,
   mutable lineStart: int,
 };
 
-/* (line:col) kind: <token.kind>, value: <token.value> */
-let printToken = ((token: Token.t, loc: location)) => {
+/* (line:col) kind: <kind>, value: <value> */
+let printToken = ((token: token, loc: location)) => {
   let locationDescription =
     "(" ++ string_of_int(loc.line) ++ ":" ++ string_of_int(loc.column) ++ ")";
 
@@ -100,12 +91,12 @@ let printToken = ((token: Token.t, loc: location)) => {
     | BracketClose
     | BraceOpen
     | BraceClose
-    | Pipe => " kind: '" ++ Token.tokenKind(token) ++ "'"
-    | Name(v) => " kind: '" ++ Token.tokenKind(token) ++ "', value: " ++ v
-    | Int(v) => " kind: '" ++ Token.tokenKind(token) ++ "', value: " ++ v
-    | Float(v) => " kind: '" ++ Token.tokenKind(token) ++ "', value: " ++ v
-    | String(v) => " kind: '" ++ Token.tokenKind(token) ++ "', value: " ++ v
-    | Comment(v) => " kind: '" ++ Token.tokenKind(token) ++ "', value: " ++ v
+    | Pipe => " kind: '" ++ tokenKind(token) ++ "'"
+    | Name(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
+    | Int(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
+    | Float(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
+    | String(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
+    | Comment(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
     };
 
   locationDescription ++ tokenDescription;
@@ -118,10 +109,10 @@ let isChar = (body, position, char) => position < String.length(body) && body.[p
  * character, then returns the position of that character for lexing.
  */
 let positionAfterWhitespace = (lexer, startPosition) => {
-  let {body} = lexer;
+  let {body, length} = lexer;
 
   let rec aux = position =>
-    if (position >= String.length(body)) {
+    if (position >= length) {
       position;
     } else {
       switch (body.[position]) {
@@ -159,14 +150,14 @@ let isNameChar =
  *
  * [_A-Za-z][_0-9A-Za-z]*
  */
-let readName = (body, start, line, column, prev): (Token.t, location) => {
+let readName = (body, start, line, column): (token, location) => {
   let rec aux = position =>
     switch (body.[position]) {
     | 'A'..'Z'
     | 'a'..'z'
     | '_' => aux(position + 1)
     | _ =>
-      let tok = Token.Name(String.sub(body, start, position - start));
+      let tok = Name(String.sub(body, start, position - start));
       let loc = {start, line, end_: position, column};
 
       (tok, loc);
@@ -180,7 +171,7 @@ let readName = (body, start, line, column, prev): (Token.t, location) => {
  *
  * #[\u0009\u0020-\uFFFF]*
  */
-let readComment = (body, start, line, column, prev): (Token.t, location) => {
+let readComment = (body, start, line, column): (token, location) => {
   let rec aux = position =>
     if (position > String.length(body)) {
       position;
@@ -194,7 +185,7 @@ let readComment = (body, start, line, column, prev): (Token.t, location) => {
 
   let position = aux(start);
   let loc = {start, line, end_: position, column};
-  let tok = Token.Comment(String.sub(body, start, position - start));
+  let tok = Comment(String.sub(body, start, position - start));
   (tok, loc);
 };
 
@@ -221,8 +212,8 @@ let readDigits = (body, startingPosition): result(int) => {
  * Int:   -?(0|[1-9][0-9]*)
  * Float: -?(0|[1-9][0-9]*)(\.[0-9]+)?((E|e)(+|-)?[0-9]+)?
  */
-let readNumber = (body, start, line, column, prev): result((Token.t, location)) => {
-  let kind = ref(Token.Int(""));
+let readNumber = (body, start, line, column): result((token, location)) => {
+  let isInt = ref(true);
   let position = ref(start);
 
   if (body.[start] == '-') {
@@ -244,7 +235,7 @@ let readNumber = (body, start, line, column, prev): result((Token.t, location)) 
 
   let%Result () =
     if (isChar(body, position^, '.')) {
-      kind := Float("");
+      isInt := false;
       position := position^ + 1;
       let%Result pos = readDigits(body, position^);
       Ok(position := pos);
@@ -254,7 +245,7 @@ let readNumber = (body, start, line, column, prev): result((Token.t, location)) 
 
   let%Result () =
     if (isChar(body, position^, 'E') || isChar(body, position^, 'e')) {
-      kind := Float("");
+      isInt := false;
       position := position^ + 1;
 
       if (isChar(body, position^, '+') || isChar(body, position^, '-')) {
@@ -270,11 +261,9 @@ let readNumber = (body, start, line, column, prev): result((Token.t, location)) 
   let loc = {start, end_: position^, line, column};
 
   let tok =
-    switch (kind^) {
-    | Int(_) => Token.Int(String.sub(body, start, position^ - start))
-    | Float(_) => Float(String.sub(body, start, position^ - start))
-    | _ => failwith("impossible")
-    };
+    isInt^ ?
+      Int(String.sub(body, start, position^ - start)) :
+      Float(String.sub(body, start, position^ - start));
 
   Ok((tok, loc));
 };
@@ -314,7 +303,7 @@ let uniCharCode = (a, b, c, d) =>
  *
  * "([^"\\\u000A\u000D]|(\\(u[0-9a-fA-F]{4}|["\\/bfnrt])))*"
  */
-let readString = (body, start, line, column, prev): result((Token.t, location)) => {
+let readString = (body, start, line, column): result((token, location)) => {
   let rec aux = (value, position, chunkStart) => {
     let%Result () =
       if (position >= String.length(body)) {
@@ -327,7 +316,7 @@ let readString = (body, start, line, column, prev): result((Token.t, location)) 
     | '\n' => syntaxError("Unterminated string")
     | '"' =>
       let loc = {line, column, start, end_: position + 1};
-      let tok: Token.t = String(value ++ String.sub(body, chunkStart, position - chunkStart));
+      let tok = String(value ++ String.sub(body, chunkStart, position - chunkStart));
       Ok((tok, loc));
     | c when Char.code(c) == 92 =>
       let newPosition = ref(position + 1);
@@ -393,13 +382,13 @@ let readString = (body, start, line, column, prev): result((Token.t, location)) 
  * punctuators immediately or calls the appropriate helper function for more
  * complicated tokens.
  */
-let readToken = (lexer, (prevToken, prevTokenLocation)): result((Token.t, location)) => {
+let readToken = (lexer, (prevToken, prevTokenLocation)): result((token, location)) => {
   let {body, length} = lexer;
   let position = positionAfterWhitespace(lexer, prevTokenLocation.end_);
   let line = lexer.line;
   let column = 1 + position - lexer.lineStart;
 
-  let prev = Some(prevToken);
+  // let prev = Some(prevToken);
 
   let location = {start: position, end_: position + 1, line, column};
 
@@ -432,17 +421,17 @@ let readToken = (lexer, (prevToken, prevTokenLocation)): result((Token.t, locati
       }
     | 'A'..'Z'
     | 'a'..'z'
-    | '_' => Ok(readName(body, position, line, column, prev))
+    | '_' => Ok(readName(body, position, line, column))
     | '0'..'9'
-    | '-' => readNumber(body, position, line, column, prev)
-    | '"' => readString(body, position, line, column, prev)
-    | '#' => Ok(readComment(body, position, line, column, prev))
+    | '-' => readNumber(body, position, line, column)
+    | '"' => readString(body, position, line, column)
+    | '#' => Ok(readComment(body, position, line, column))
     | char => syntaxError("Unexpected Character" ++ String.make(1, char))
     };
   };
 };
 
-let sof = (Token.StartOfFile, {start: 0, end_: 0, column: 0, line: 1});
+let sof = (StartOfFile, {start: 0, end_: 0, column: 0, line: 1});
 
 let make = body => {body, length: String.length(body), token: sof, line: 1, lineStart: 0};
 
@@ -465,6 +454,5 @@ let advance = lexer => {
   // lexer.lastToken = lexer.token;
   let%Result token = lookahead(lexer);
   lexer.token = token;
-  let (tok, _) = token;
   Ok(token);
 };

@@ -1,6 +1,5 @@
 open GraphqlLanguageAst;
 module Lexer = GraphqlLanguageLexer;
-module Token = Lexer.Token;
 
 module Result = {
   include Belt.Result;
@@ -15,21 +14,18 @@ let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
  * If the next token is of the given kind, return that token after advancing
  * the lexer. Otherwise, do not change the parser state and throw an error.
  */
-let expect = (lexer: Lexer.t, token: Token.t) =>
+let expect = (lexer: Lexer.t, token: Lexer.token) =>
   switch (fst(lexer.token)) {
   | currToken when currToken == token => Lexer.advance(lexer)
   | _ =>
     syntaxError(
-      "Expected" ++ Token.tokenKind(token) ++ ", found " ++ Lexer.printToken(lexer.token),
+      "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.printToken(lexer.token),
     )
   };
 
-let expectedError = (lexer: Lexer.t, token: Token.t) => {
+let expectedError = (lexer: Lexer.t, token: Lexer.token) => {
   syntaxError(
-    "Expected"
-    ++ Lexer.Token.tokenKind(token)
-    ++ ", found "
-    ++ Lexer.printToken(lexer.token),
+    "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.printToken(lexer.token),
   );
 };
 
@@ -37,7 +33,7 @@ let expectedError = (lexer: Lexer.t, token: Token.t) => {
  * If the next token is of the given kind, return true after advancing
  * the lexer. Otherwise, do not change the parser state and return false.
  */
-let skip = (lexer: Lexer.t, skipToken: Token.t): result(bool) =>
+let skip = (lexer: Lexer.t, skipToken: Lexer.token): result(bool) =>
   switch (fst(lexer.token)) {
   | token when token == skipToken =>
     let%Result _ = Lexer.advance(lexer);
@@ -85,7 +81,13 @@ let unexpected = (lexer: Lexer.t) => {
  * and ends with a lex token of closeKind. Advances the parser
  * to the next lex token after the closing token.
  */
-let any = (lexer: Lexer.t, openKind: Token.t, parseFn: Lexer.t => result('a), closeKind: Token.t) => {
+let any =
+    (
+      lexer: Lexer.t,
+      openKind: Lexer.token,
+      parseFn: Lexer.t => result('a),
+      closeKind: Lexer.token,
+    ) => {
   let%Result _ = expect(lexer, openKind);
 
   let rec collect = nodes => {
@@ -108,7 +110,12 @@ let any = (lexer: Lexer.t, openKind: Token.t, parseFn: Lexer.t => result('a), cl
  * to the next lex token after the closing token.
  */
 let many =
-    (lexer: Lexer.t, openKind: Token.t, parseFn: Lexer.t => result('a), closeKind: Token.t)
+    (
+      lexer: Lexer.t,
+      openKind: Lexer.token,
+      parseFn: Lexer.t => result('a),
+      closeKind: Lexer.token,
+    )
     : result(list('a)) => {
   let%Result _ = expect(lexer, openKind);
   let%Result node = parseFn(lexer);
@@ -405,8 +412,8 @@ let parseOperationDefinition = (lexer: Lexer.t) =>
     let%Result _ = Lexer.advance(lexer);
     let%Result name =
       switch (lexer.token) {
-      | (Name(_), _) =>
-        let%Result name = parseName(lexer);
+      | (Name(name), _) =>
+        let%Result _ = Lexer.advance(lexer);
         Ok(Some(name));
       | _ => Ok(None)
       };
