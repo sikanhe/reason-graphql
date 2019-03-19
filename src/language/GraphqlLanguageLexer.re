@@ -61,7 +61,7 @@ type location = {
 };
 
 type t = {
-  body: string,
+  source: string,
   // mutable lastToken: token,
   mutable token: (token, location),
   mutable line: int,
@@ -86,20 +86,20 @@ let printToken = ((token: token, loc: location)) => {
   locationDescription ++ tokenDescription;
 };
 
-let isChar = (body, position, char) => position < String.length(body) && body.[position] == char;
+let isChar = (source, position, char) => position < String.length(source) && source.[position] == char;
 
 /**
- * Reads from body starting at startPosition until it finds a non-whitespace
+ * Reads from source starting at startPosition until it finds a non-whitespace
  * character, then returns the position of that character for lexing.
  */
 let positionAfterWhitespace = (lexer, startPosition) => {
-  let {body} = lexer;
+  let {source} = lexer;
 
   let rec aux = position =>
-    if (position >= String.length(body)) {
+    if (position >= String.length(source)) {
       position;
     } else {
-      switch (body.[position]) {
+      switch (source.[position]) {
       | bom when int_of_char(bom) == 0xFEFF => position + 1
       | ' '
       | ','
@@ -110,7 +110,7 @@ let positionAfterWhitespace = (lexer, startPosition) => {
         lexer.lineStart = newPosition;
         aux(newPosition);
       | '\r' =>
-        let newPosition = isChar(body, position + 1, '\n') ? position + 2 : position + 1;
+        let newPosition = isChar(source, position + 1, '\n') ? position + 2 : position + 1;
 
         lexer.line = lexer.line + 1;
         lexer.lineStart = newPosition;
@@ -134,14 +134,14 @@ let isNameChar =
  *
  * [_A-Za-z][_0-9A-Za-z]*
  */
-let readName = (body, start, line, column): (token, location) => {
+let readName = (source, ~start, ~line, ~column): (token, location) => {
   let rec aux = position =>
-    switch (body.[position]) {
+    switch (source.[position]) {
     | 'A'..'Z'
     | 'a'..'z'
     | '_' => aux(position + 1)
     | _ =>
-      let tok = Name(String.sub(body, start, position - start));
+      let tok = Name(String.sub(source, start, position - start));
       let loc = {start, line, end_: position, column};
 
       (tok, loc);
@@ -155,12 +155,12 @@ let readName = (body, start, line, column): (token, location) => {
  *
  * #[\u0009\u0020-\uFFFF]*
  */
-let readComment = (body, start, line, column): (token, location) => {
+let readComment = (source, ~start, ~line, ~column): (token, location) => {
   let rec aux = position =>
-    if (position > String.length(body)) {
+    if (position > String.length(source)) {
       position;
     } else {
-      switch (body.[position]) {
+      switch (source.[position]) {
       | '\r'
       | '\n' => position
       | _ => aux(position + 1)
@@ -169,24 +169,24 @@ let readComment = (body, start, line, column): (token, location) => {
 
   let position = aux(start);
   let loc = {start, line, end_: position, column};
-  let tok = Comment(String.sub(body, start, position - start));
+  let tok = Comment(String.sub(source, start, position - start));
   (tok, loc);
 };
 
-let readDigits = (body, startingPosition): result(int) => {
-  let rec aux = (body, pos) =>
-    if (pos >= String.length(body)) {
+let readDigits = (source, startingPosition): result(int) => {
+  let rec aux = (source, pos) =>
+    if (pos >= String.length(source)) {
       Result.Ok(pos);
     } else {
-      switch (body.[pos]) {
-      | '0'..'9' => aux(body, pos + 1)
+      switch (source.[pos]) {
+      | '0'..'9' => aux(source, pos + 1)
       | c when pos === startingPosition =>
         syntaxError("Invalid number, expected digit but got: " ++ String.make(1, c))
       | _ => Ok(pos)
       };
     };
 
-  aux(body, startingPosition);
+  aux(source, startingPosition);
 };
 
 /**
@@ -196,47 +196,47 @@ let readDigits = (body, startingPosition): result(int) => {
  * Int:   -?(0|[1-9][0-9]*)
  * Float: -?(0|[1-9][0-9]*)(\.[0-9]+)?((E|e)(+|-)?[0-9]+)?
  */
-let readNumber = (body, start, line, column): result((token, location)) => {
+let readNumber = (source, ~start, ~line, ~column): result((token, location)) => {
   let isFloat = ref(false);
   let position = ref(start);
 
-  if (body.[start] == '-') {
+  if (source.[start] == '-') {
     position := position^ + 1;
   };
 
   let%Result () =
-    if (body.[position^] == '0') {
+    if (source.[position^] == '0') {
       position := position^ + 1;
-      switch (body.[position^]) {
+      switch (source.[position^]) {
       | '0'..'9' as char =>
         syntaxError("Invalid number, unexpected digit after 0: " ++ String.make(1, char))
       | _ => Ok()
       };
     } else {
-      let%Result pos = readDigits(body, position^);
+      let%Result pos = readDigits(source, position^);
       Ok(position := pos);
     };
 
   let%Result () =
-    if (isChar(body, position^, '.')) {
+    if (isChar(source, position^, '.')) {
       isFloat := true;
       position := position^ + 1;
-      let%Result pos = readDigits(body, position^);
+      let%Result pos = readDigits(source, position^);
       Ok(position := pos);
     } else {
       Ok();
     };
 
   let%Result () =
-    if (isChar(body, position^, 'E') || isChar(body, position^, 'e')) {
+    if (isChar(source, position^, 'E') || isChar(source, position^, 'e')) {
       isFloat := true;
       position := position^ + 1;
 
-      if (isChar(body, position^, '+') || isChar(body, position^, '-')) {
+      if (isChar(source, position^, '+') || isChar(source, position^, '-')) {
         position := position^ + 1;
       };
 
-      let%Result pos = readDigits(body, position^);
+      let%Result pos = readDigits(source, position^);
       Ok(position := pos);
     } else {
       Ok();
@@ -246,8 +246,8 @@ let readNumber = (body, start, line, column): result((token, location)) => {
 
   let tok =
     isFloat^ ?
-      Float(String.sub(body, start, position^ - start)) :
-      Int(String.sub(body, start, position^ - start));
+      Float(String.sub(source, start, position^ - start)) :
+      Int(String.sub(source, start, position^ - start));
 
   Ok((tok, loc));
 };
@@ -287,24 +287,24 @@ let uniCharCode = (a, b, c, d) =>
  *
  * "([^"\\\u000A\u000D]|(\\(u[0-9a-fA-F]{4}|["\\/bfnrt])))*"
  */
-let readString = (body, start, line, column): result((token, location)) => {
+let readString = (source, ~start, ~line, ~column): result((token, location)) => {
   let rec aux = (value, position, chunkStart) => {
     let%Result () =
-      if (position >= String.length(body)) {
+      if (position >= String.length(source)) {
         syntaxError("Unterminated string");
       } else {
         Ok();
       };
 
-    switch (body.[position]) {
+    switch (source.[position]) {
     | '\n' => syntaxError("Unterminated string")
     | '"' =>
       let loc = {line, column, start, end_: position + 1};
-      let tok = String(value ++ String.sub(body, chunkStart, position - chunkStart));
+      let tok = String(value ++ String.sub(source, chunkStart, position - chunkStart));
       Ok((tok, loc));
     | c when Char.code(c) == 92 =>
       let newPosition = ref(position + 1);
-      let code = body.[newPosition^]->Char.code;
+      let code = source.[newPosition^]->Char.code;
       let%Result rest =
         switch (code) {
         | 34 => Ok("\"")
@@ -319,17 +319,17 @@ let readString = (body, start, line, column): result((token, location)) => {
         | 117 =>
           let charCode =
             uniCharCode(
-              body.[position + 1]->Char.code,
-              body.[position + 2]->Char.code,
-              body.[position + 3]->Char.code,
-              body.[position + 4]->Char.code,
+              source.[position + 1]->Char.code,
+              source.[position + 2]->Char.code,
+              source.[position + 3]->Char.code,
+              source.[position + 4]->Char.code,
             );
 
           if (charCode < 0) {
             syntaxError(
               "Invalid character escape sequence: "
               ++ "\\u"
-              ++ String.sub(body, position + 1, position + 5)
+              ++ String.sub(source, position + 1, position + 5)
               ++ ".",
             );
           } else {
@@ -342,7 +342,7 @@ let readString = (body, start, line, column): result((token, location)) => {
             "Invalid character escape sequence: \\" ++ (Char.chr(code) |> String.make(1)),
           )
         };
-      let value = value ++ String.sub(body, chunkStart, newPosition^ - chunkStart - 1) ++ rest;
+      let value = value ++ String.sub(source, chunkStart, newPosition^ - chunkStart - 1) ++ rest;
 
       let nextPosition = newPosition^ + 1;
       aux(value, nextPosition, nextPosition);
@@ -361,7 +361,7 @@ let readString = (body, start, line, column): result((token, location)) => {
  * complicated tokens.
  */
 let readToken = (lexer, (prevToken, prevTokenLocation)): result((token, location)) => {
-  let {body} = lexer;
+  let {source} = lexer;
   let position = positionAfterWhitespace(lexer, prevTokenLocation.end_);
   let line = lexer.line;
   let column = 1 + position - lexer.lineStart;
@@ -370,10 +370,10 @@ let readToken = (lexer, (prevToken, prevTokenLocation)): result((token, location
 
   let location = {start: position, end_: position + 1, line, column};
 
-  if (position >= String.length(body)) {
+  if (position >= String.length(source)) {
     Ok((EndOfFile, location));
   } else {
-    switch (body.[position]) {
+    switch (source.[position]) {
     | '!' => Ok((Bang, location))
     | '$' => Ok((Dollar, location))
     | '&' => Ok((Amp, location))
@@ -388,29 +388,29 @@ let readToken = (lexer, (prevToken, prevTokenLocation)): result((token, location
     | '|' => Ok((Pipe, location))
     | '}' => Ok((BraceClose, location))
     | '.' =>
-      if (isChar(body, position + 1, '.') && isChar(body, position + 2, '.')) {
+      if (isChar(source, position + 1, '.') && isChar(source, position + 2, '.')) {
         let loc = {...location, end_: position + 3};
 
         Ok((Spread, loc));
-      } else if (position + 1 >= String.length(body)) {
+      } else if (position + 1 >= String.length(source)) {
         syntaxError("Unexpected End of File");
       } else {
-        syntaxError("Unexpected Character" ++ String.make(1, body.[position + 1]));
+        syntaxError("Unexpected Character" ++ String.make(1, source.[position + 1]));
       }
     | 'A'..'Z'
     | 'a'..'z'
-    | '_' => Ok(readName(body, position, line, column))
+    | '_' => Ok(readName(source, ~start=position, ~line, ~column))
     | '0'..'9'
-    | '-' => readNumber(body, position, line, column)
-    | '"' => readString(body, position, line, column)
-    | '#' => Ok(readComment(body, position, line, column))
+    | '-' => readNumber(source, ~start=position, ~line, ~column)
+    | '"' => readString(source, ~start=position, ~line, ~column)
+    | '#' => Ok(readComment(source, ~start=position, ~line, ~column))
     | char => syntaxError("Unexpected Character" ++ String.make(1, char))
     };
   };
 };
 
-let make = body => {
-  body,
+let make = source => {
+  source,
   token: (StartOfFile, {start: 0, end_: 0, column: 0, line: 1}),
   line: 1,
   lineStart: 0,
