@@ -10,6 +10,12 @@ type result('a) = Result.t('a, GraphqlLanguageError.t);
 
 let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
 
+let expectedError = (lexer: Lexer.t, token: Lexer.token) => {
+  syntaxError(
+    "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.printToken(lexer.token),
+  );
+};
+
 /**
  * If the next token is of the given kind, return that token after advancing
  * the lexer. Otherwise, do not change the parser state and throw an error.
@@ -17,17 +23,8 @@ let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
 let expect = (lexer: Lexer.t, token: Lexer.token) =>
   switch (fst(lexer.token)) {
   | currToken when currToken == token => Lexer.advance(lexer)
-  | _ =>
-    syntaxError(
-      "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.printToken(lexer.token),
-    )
+  | _ => expectedError(lexer, token)
   };
-
-let expectedError = (lexer: Lexer.t, token: Lexer.token) => {
-  syntaxError(
-    "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.printToken(lexer.token),
-  );
-};
 
 /**
  * If the next token is of the given kind, return true after advancing

@@ -76,27 +76,12 @@ let printToken = ((token: token, loc: location)) => {
 
   let tokenDescription =
     switch (token) {
-    | StartOfFile
-    | EndOfFile
-    | Bang
-    | Dollar
-    | Amp
-    | ParenOpen
-    | ParenClose
-    | Spread
-    | Colon
-    | Equals
-    | At
-    | BracketOpen
-    | BracketClose
-    | BraceOpen
-    | BraceClose
-    | Pipe => " kind: '" ++ tokenKind(token) ++ "'"
     | Name(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
     | Int(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
     | Float(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
     | String(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
     | Comment(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
+    | token => " kind: '" ++ tokenKind(token) ++ "'"
     };
 
   locationDescription ++ tokenDescription;
@@ -368,12 +353,6 @@ let readString = (body, start, line, column): result((token, location)) => {
 
   aux("", start + 1, start + 1);
 };
-
-/**
- * Reads a block string token from the source file.
- */
-// TODO:
-// let readBlockString = (_body, _start, _line, _column, _prev) =>
 
 /**
  * Gets the next token from the source starting at the given position.
