@@ -198,7 +198,7 @@ let readDigits = (body, startingPosition): result(int) => {
  * Float: -?(0|[1-9][0-9]*)(\.[0-9]+)?((E|e)(+|-)?[0-9]+)?
  */
 let readNumber = (body, start, line, column): result((token, location)) => {
-  let isInt = ref(true);
+  let isFloat = ref(false);
   let position = ref(start);
 
   if (body.[start] == '-') {
@@ -220,7 +220,7 @@ let readNumber = (body, start, line, column): result((token, location)) => {
 
   let%Result () =
     if (isChar(body, position^, '.')) {
-      isInt := false;
+      isFloat := true;
       position := position^ + 1;
       let%Result pos = readDigits(body, position^);
       Ok(position := pos);
@@ -230,7 +230,7 @@ let readNumber = (body, start, line, column): result((token, location)) => {
 
   let%Result () =
     if (isChar(body, position^, 'E') || isChar(body, position^, 'e')) {
-      isInt := false;
+      isFloat := true;
       position := position^ + 1;
 
       if (isChar(body, position^, '+') || isChar(body, position^, '-')) {
@@ -246,9 +246,9 @@ let readNumber = (body, start, line, column): result((token, location)) => {
   let loc = {start, end_: position^, line, column};
 
   let tok =
-    isInt^ ?
-      Int(String.sub(body, start, position^ - start)) :
-      Float(String.sub(body, start, position^ - start));
+    isFloat^ ?
+      Float(String.sub(body, start, position^ - start)) :
+      Int(String.sub(body, start, position^ - start));
 
   Ok((tok, loc));
 };

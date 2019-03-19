@@ -16,45 +16,24 @@ let expectedError = (lexer: Lexer.t, token: Lexer.token) => {
   );
 };
 
-/**
- * If the next token is of the given kind, return that token after advancing
- * the lexer. Otherwise, do not change the parser state and throw an error.
- */
 let expect = (lexer: Lexer.t, token: Lexer.token) =>
   switch (fst(lexer.token)) {
   | currToken when currToken == token => Lexer.advance(lexer)
   | _ => expectedError(lexer, token)
   };
 
-/**
- * If the next token is of the given kind, return true after advancing
- * the lexer. Otherwise, do not change the parser state and return false.
- */
 let skip = (lexer: Lexer.t, skipToken: Lexer.token): result(bool) =>
   switch (fst(lexer.token)) {
-  | token when token == skipToken =>
-    let%Result _ = Lexer.advance(lexer);
-    Ok(true);
+  | token when token == skipToken => Lexer.advance(lexer)->Result.map(_ => true)
   | _ => Ok(false)
   };
 
-/**
- * If the next token is a keyword with the given value, return true after advancing
- * the lexer. Otherwise, do not change the parser state and return false.
- */
 let skipKeyword = (lexer: Lexer.t, value: string): result(bool) =>
   switch (fst(lexer.token)) {
-  | Name(name) when name == value =>
-    let%Result _ = Lexer.advance(lexer);
-    Ok(true);
+  | Name(name) when name == value => Lexer.advance(lexer)->Result.map(_ => true)
   | _ => Ok(false)
   };
 
-/**
- * If the next token is a keyword with the given value, return that token after
- * advancing the lexer. Otherwise, do not change the parser state and throw
- * an error.
- */
 let expectKeyword = (lexer: Lexer.t, value: string): result(unit) => {
   let%Result skipped = skipKeyword(lexer, value);
   if (!skipped) {
@@ -64,20 +43,10 @@ let expectKeyword = (lexer: Lexer.t, value: string): result(unit) => {
   };
 };
 
-/**
- * Helper function for creating an error when an unexpected lexed token
- * is encountered.
- */
 let unexpected = (lexer: Lexer.t) => {
   syntaxError("Unexpected " ++ Lexer.printToken(lexer.token));
 };
 
-/**
- * Returns a possibly empty list of parse nodes, determined by
- * the parseFn. This list begins with a lex token of openKind
- * and ends with a lex token of closeKind. Advances the parser
- * to the next lex token after the closing token.
- */
 let any =
     (
       lexer: Lexer.t,
@@ -100,12 +69,6 @@ let any =
   collect([]);
 };
 
-/**
- * Returns a non-empty list of parse nodes, determined by
- * the parseFn. This list begins with a lex token of openKind
- * and ends with a lex token of closeKind. Advances the parser
- * to the next lex token after the closing token.
- */
 let many =
     (
       lexer: Lexer.t,
@@ -133,8 +96,7 @@ let many =
 let parseName =
   fun
   | ({token: (Name(value), _)} as lexer: Lexer.t) => {
-      let%Result _ = Lexer.advance(lexer);
-      Result.Ok(value);
+      Lexer.advance(lexer)->Result.map(_ => value);
     }
   | lexer => expectedError(lexer, Name(""));
 
@@ -143,68 +105,32 @@ let parseNamedType = (lexer: Lexer.t) => {
   Ok(NamedType(name));
 };
 
-/**
- * Variable : $ Name
- */
 let parseVariable = (lexer: Lexer.t) => {
   let%Result _ = expect(lexer, Dollar);
   let%Result name = parseName(lexer);
   Ok(`Variable(name));
 };
 
-/**
- * Value[Const] :
- *   - [~Const] Variable
- *   - IntValue
- *   - FloatValue
- *   - StringValue
- *   - BooleanValue
- *   - NullValue
- *   - EnumValue
- *   - ListValue[?Const]
- *   - ObjectValue[?Const]
- *
- * BooleanValue : one of `true` `false`
- *
- * NullValue : `null`
- *
- * EnumValue : Name but not `true`, `false` or `null`
- */
 let rec parseValueLiteral =
         ({token: (token, _)} as lexer: Lexer.t, ~isConst: bool): result(value) =>
-  switch (token) {
-  | BracketOpen =>
-    let%Result list = any(lexer, BracketOpen, parseValueLiteral(~isConst), BracketClose);
-    Ok(`List(list));
-  | BraceOpen => parseObject(lexer, ~isConst)
-  | Int(value) =>
-    let%Result _ = Lexer.advance(lexer);
-    Ok(`Int(int_of_string(value)));
-  | Float(value) =>
-    let%Result _ = Lexer.advance(lexer);
-    Ok(`Float(float_of_string(value)));
-  | String(value) =>
-    let%Result _ = Lexer.advance(lexer);
-    Ok(`String(value));
-  | Name(value) =>
-    let value =
-      switch (value) {
-      | "true" => `Boolean(true)
-      | "false" => `Boolean(false)
-      | "null" => `Null
-      | enum => `Enum(enum)
-      };
-    let%Result _ = Lexer.advance(lexer);
-    Ok(value);
-  | Dollar when !isConst => parseVariable(lexer)
-  | _ => unexpected(lexer)
-  }
+  Result.(
+    switch (token) {
+    | BracketOpen =>
+      any(lexer, BracketOpen, parseValueLiteral(~isConst), BracketClose)
+      ->map(list => `List(list))
+    | BraceOpen => parseObject(lexer, ~isConst)
+    | Int(value) => Lexer.advance(lexer)->map(_ => `Int(int_of_string(value)))
+    | Float(value) => Lexer.advance(lexer)->map(_ => `Float(float_of_string(value)))
+    | String(value) => Lexer.advance(lexer)->map(_ => `String(value))
+    | Name("true") => Lexer.advance(lexer)->map(_ => `Boolean(true))
+    | Name("false") => Lexer.advance(lexer)->map(_ => `Boolean(false))
+    | Name("null") => Lexer.advance(lexer)->map(_ => `Null)
+    | Name(value) => Lexer.advance(lexer)->map(_ => `Enum(value))
+    | Dollar when !isConst => parseVariable(lexer)
+    | _ => unexpected(lexer)
+    }
+  )
 
-/**
- * ObjectValue[Const] :
- *   - { }
- *   - { ObjectField[?Const]+ }
- */
 and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
   let%Result _ = expect(lexer, BraceOpen);
 
@@ -222,9 +148,6 @@ and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
   Ok(`Map(Belt.List.reverse(fields)));
 }
 
-/**
- * ObjectField[Const] : Name : Value[?Const]
- */
 and parseObjectField = (lexer: Lexer.t, ~isConst: bool): result((string, value)) => {
   let%Result name = parseName(lexer);
   let%Result _ = expect(lexer, Colon);
@@ -307,38 +230,22 @@ let parseVariableDefinitions = (lexer: Lexer.t) =>
   | _ => Ok([])
   };
 
-/**
- * SelectionSet : { Selection+ }
- */
-let rec parseSelectionSet = (lexer: Lexer.t): result(list(selection)) =>
-  many(lexer, BraceOpen, parseSelection, BraceClose)
+let rec parseSelectionSet = (lexer: Lexer.t): result(list(selection)) => {
+  many(lexer, BraceOpen, parseSelection, BraceClose);
+}
 
-/**
- * Selection :
- *   - Field
- *   - FragmentSpread
- *   - InlineFragment
- */
 and parseSelection = (lexer: Lexer.t): result(selection) =>
   switch (fst(lexer.token)) {
   | Spread => parseFragment(lexer)
   | _ => parseField(lexer)
   }
 
-/**
- * FragmentName : Name but not `on`
- */
 and parseFragmentName = (lexer: Lexer.t) =>
   switch (fst(lexer.token)) {
   | Name("on") => unexpected(lexer)
   | _ => parseName(lexer)
   }
 
-/**
- * Corresponds to both FragmentSpread and InlineFragment in the spec.
- * FragmentSpread : ... FragmentName Directives?
- * InlineFragment : ... TypeCondition? Directives? SelectionSet
- */
 and parseFragment = (lexer: Lexer.t) => {
   let%Result _ = expect(lexer, Spread);
   let%Result hasTypeCondition = skipKeyword(lexer, "on");
@@ -386,11 +293,6 @@ and parseField = (lexer: Lexer.t) => {
   Ok(Field({name, alias, arguments, directives, selectionSet}));
 };
 
-/**
- * OperationDefinition :
- *  - SelectionSet
- *  - OperationType Name? VariableDefinitions? Directives? SelectionSet
- */
 let parseOperationDefinition = (lexer: Lexer.t) =>
   switch (fst(lexer.token)) {
   | BraceOpen =>
@@ -409,9 +311,7 @@ let parseOperationDefinition = (lexer: Lexer.t) =>
     let%Result _ = Lexer.advance(lexer);
     let%Result name =
       switch (lexer.token) {
-      | (Name(name), _) =>
-        let%Result _ = Lexer.advance(lexer);
-        Ok(Some(name));
+      | (Name(name), _) => Lexer.advance(lexer)->Result.map(_ => Some(name))
       | _ => Ok(None)
       };
 
@@ -422,12 +322,6 @@ let parseOperationDefinition = (lexer: Lexer.t) =>
     Ok(OperationDefinition({operationType, name, variableDefinition, directives, selectionSet}));
   };
 
-/**
- * FragmentDefinition :
- *   - fragment FragmentName on TypeCondition Directives? SelectionSet
- *
- * TypeCondition : NamedType
- */
 let parseFragmentDefinition = (lexer: Lexer.t) => {
   let%Result () = expectKeyword(lexer, "fragment");
   let%Result name = parseFragmentName(lexer);
@@ -440,11 +334,6 @@ let parseFragmentDefinition = (lexer: Lexer.t) => {
   Ok(FragmentDefinition({typeCondition, name, selectionSet, directives}));
 };
 
-/**
- * ExecutableDefinition :
- *   - OperationDefinition
- *   - FragmentDefinition
- */
 let parseExecutableDefinition = (lexer: Lexer.t) =>
   switch (fst(lexer.token)) {
   | Name("query" | "mutation" | "subscription")
@@ -453,9 +342,6 @@ let parseExecutableDefinition = (lexer: Lexer.t) =>
   | _ => unexpected(lexer)
   };
 
-/**
- * Document : Definition+
- */
 let parseDocument = (lexer: Lexer.t): result(document) => {
   let%Result definitions = many(lexer, StartOfFile, parseExecutableDefinition, EndOfFile);
   Ok({definitions: definitions});
