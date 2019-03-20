@@ -6,6 +6,13 @@ module Result = {
 type result('a) = Result.t('a, GraphqlLanguageError.t);
 let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
 
+type location = {
+  start: int,
+  end_: int,
+  line: int,
+  column: int,
+};
+
 type token =
   | StartOfFile
   | EndOfFile
@@ -53,16 +60,9 @@ let tokenKind =
   | String(_) => "String"
   | Comment(_) => "Comment";
 
-type location = {
-  start: int,
-  end_: int,
-  line: int,
-  column: int,
-};
 
 type t = {
   source: string,
-  // mutable lastToken: token,
   mutable token: (token, location),
   mutable line: int,
   mutable lineStart: int,
@@ -362,13 +362,11 @@ let readString = (source, ~start, ~line, ~column): result((token, location)) => 
  * punctuators immediately or calls the appropriate helper function for more
  * complicated tokens.
  */
-let readToken = (lexer, (prevToken, prevTokenLocation)): result((token, location)) => {
+let readToken = (lexer, prevTokenLocation): result((token, location)) => {
   let {source} = lexer;
   let position = positionAfterWhitespace(lexer, prevTokenLocation.end_);
   let line = lexer.line;
   let column = 1 + position - lexer.lineStart;
-
-  // let prev = Some(prevToken);
 
   let location = {start: position, end_: position + 1, line, column};
 
@@ -423,7 +421,7 @@ let lookahead =
   | {token: (EndOfFile, _) as token} => Result.Ok(token)
   | lexer => {
       let rec skipComment = token => {
-        let%Result (currToken', loc) = readToken(lexer, token);
+        let%Result (currToken', loc) = readToken(lexer, snd(token));
         switch (currToken') {
         | Comment(_) => skipComment((currToken', loc))
         | _ => Ok((currToken', loc))
@@ -434,7 +432,6 @@ let lookahead =
     };
 
 let advance = lexer => {
-  // lexer.lastToken = lexer.token;
   let%Result token = lookahead(lexer);
   lexer.token = token;
   Ok(token);
