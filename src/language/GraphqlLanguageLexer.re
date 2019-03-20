@@ -60,20 +60,24 @@ let tokenKind =
   | String(_) => "String"
   | Comment(_) => "Comment";
 
+type lexerToken = {
+  token,
+  location,
+};
 
 type t = {
   source: string,
-  mutable token: (token, location),
+  mutable curr: lexerToken,
   mutable line: int,
   mutable lineStart: int,
 };
 
 /* (line:col) kind: <kind>, value: <value> */
-let tokenDesc = ((token: token, loc: location)) => {
+let tokenDesc = ({token, location}) => {
   "("
-  ++ string_of_int(loc.line)
+  ++ string_of_int(location.line)
   ++ ":"
-  ++ string_of_int(loc.column)
+  ++ string_of_int(location.column)
   ++ ")"
   ++ (
     switch (token) {
@@ -136,17 +140,21 @@ let isNameChar =
  *
  * [_A-Za-z][_0-9A-Za-z]*
  */
-let readName = (source, ~start, ~line, ~column): (token, location) => {
+let readName = (source, ~start, ~line, ~column): lexerToken => {
   let rec aux = position =>
     switch (source.[position]) {
     | 'A'..'Z'
     | 'a'..'z'
     | '_' => aux(position + 1)
-    | _ =>
-      let tok = Name(String.sub(source, start, position - start));
-      let loc = {start, line, end_: position, column};
-
-      (tok, loc);
+    | _ => {
+        token: Name(String.sub(source, start, position - start)),
+        location: {
+          start,
+          line,
+          end_: position,
+          column,
+        },
+      }
     };
 
   aux(start);
@@ -157,7 +165,7 @@ let readName = (source, ~start, ~line, ~column): (token, location) => {
  *
  * #[\u0009\u0020-\uFFFF]*
  */
-let readComment = (source, ~start, ~line, ~column): (token, location) => {
+let readComment = (source, ~start, ~line, ~column): lexerToken => {
   let rec aux = position =>
     if (position > String.length(source)) {
       position;
@@ -170,9 +178,16 @@ let readComment = (source, ~start, ~line, ~column): (token, location) => {
     };
 
   let position = aux(start);
-  let loc = {start, line, end_: position, column};
-  let tok = Comment(String.sub(source, start, position - start));
-  (tok, loc);
+
+  {
+    token: Comment(String.sub(source, start, position - start)),
+    location: {
+      start,
+      line,
+      end_: position,
+      column,
+    },
+  };
 };
 
 let readDigits = (source, startingPosition): result(int) => {
@@ -198,7 +213,7 @@ let readDigits = (source, startingPosition): result(int) => {
  * Int:   -?(0|[1-9][0-9]*)
  * Float: -?(0|[1-9][0-9]*)(\.[0-9]+)?((E|e)(+|-)?[0-9]+)?
  */
-let readNumber = (source, ~start, ~line, ~column): result((token, location)) => {
+let readNumber = (source, ~start, ~line, ~column): result(lexerToken) => {
   let isFloat = ref(false);
   let position = ref(start);
 
@@ -251,7 +266,7 @@ let readNumber = (source, ~start, ~line, ~column): result((token, location)) => 
       Float(String.sub(source, start, position^ - start)) :
       Int(String.sub(source, start, position^ - start));
 
-  Ok((tok, loc));
+  Ok({token: tok, location: loc});
 };
 
 /**
@@ -289,7 +304,7 @@ let uniCharCode = (a, b, c, d) =>
  *
  * "([^"\\\u000A\u000D]|(\\(u[0-9a-fA-F]{4}|["\\/bfnrt])))*"
  */
-let readString = (source, ~start, ~line, ~column): result((token, location)) => {
+let readString = (source, ~start, ~line, ~column): result(lexerToken) => {
   let rec aux = (value, position, chunkStart) => {
     let%Result () =
       if (position >= String.length(source)) {
@@ -301,9 +316,15 @@ let readString = (source, ~start, ~line, ~column): result((token, location)) => 
     switch (source.[position]) {
     | '\n' => syntaxError("Unterminated string")
     | '"' =>
-      let loc = {line, column, start, end_: position + 1};
-      let tok = String(value ++ String.sub(source, chunkStart, position - chunkStart));
-      Ok((tok, loc));
+      Ok({
+        token: String(value ++ String.sub(source, chunkStart, position - chunkStart)),
+        location: {
+          line,
+          column,
+          start,
+          end_: position + 1,
+        },
+      })
     | c when Char.code(c) == 92 =>
       let newPosition = ref(position + 1);
       let code = source.[newPosition^]->Char.code;
@@ -362,36 +383,40 @@ let readString = (source, ~start, ~line, ~column): result((token, location)) => 
  * punctuators immediately or calls the appropriate helper function for more
  * complicated tokens.
  */
-let readToken = (lexer, prevTokenLocation): result((token, location)) => {
+let readToken = (lexer, prevToken): result(lexerToken) => {
   let {source} = lexer;
-  let position = positionAfterWhitespace(lexer, prevTokenLocation.end_);
+  let position = positionAfterWhitespace(lexer, prevToken.location.end_);
   let line = lexer.line;
   let column = 1 + position - lexer.lineStart;
 
   let location = {start: position, end_: position + 1, line, column};
 
   if (position >= String.length(source)) {
-    Ok((EndOfFile, location));
+    Ok({token: EndOfFile, location});
   } else {
     switch (source.[position]) {
-    | '!' => Ok((Bang, location))
-    | '$' => Ok((Dollar, location))
-    | '&' => Ok((Amp, location))
-    | '(' => Ok((ParenOpen, location))
-    | ')' => Ok((ParenClose, location))
-    | ':' => Ok((Colon, location))
-    | '=' => Ok((Equals, location))
-    | '@' => Ok((At, location))
-    | '[' => Ok((BracketOpen, location))
-    | ']' => Ok((BracketClose, location))
-    | '{' => Ok((BraceOpen, location))
-    | '|' => Ok((Pipe, location))
-    | '}' => Ok((BraceClose, location))
+    | '!' => Ok({token: Bang, location})
+    | '$' => Ok({token: Dollar, location})
+    | '&' => Ok({token: Amp, location})
+    | '(' => Ok({token: ParenOpen, location})
+    | ')' => Ok({token: ParenClose, location})
+    | ':' => Ok({token: Colon, location})
+    | '=' => Ok({token: Equals, location})
+    | '@' => Ok({token: At, location})
+    | '[' => Ok({token: BracketOpen, location})
+    | ']' => Ok({token: BracketClose, location})
+    | '{' => Ok({token: BraceOpen, location})
+    | '|' => Ok({token: Pipe, location})
+    | '}' => Ok({token: BraceClose, location})
     | '.' =>
       if (isChar(source, position + 1, '.') && isChar(source, position + 2, '.')) {
-        let loc = {...location, end_: position + 3};
-
-        Ok((Spread, loc));
+        Ok({
+          token: Spread,
+          location: {
+            ...location,
+            end_: position + 3,
+          },
+        });
       } else if (position + 1 >= String.length(source)) {
         syntaxError("Unexpected End of File");
       } else {
@@ -411,28 +436,36 @@ let readToken = (lexer, prevTokenLocation): result((token, location)) => {
 
 let make = source => {
   source,
-  token: (StartOfFile, {start: 0, end_: 0, column: 0, line: 1}),
+  curr: {
+    token: StartOfFile,
+    location: {
+      start: 0,
+      end_: 0,
+      column: 0,
+      line: 1,
+    },
+  },
   line: 1,
   lineStart: 0,
 };
 
 let lookahead =
   fun
-  | {token: (EndOfFile, _) as token} => Result.Ok(token)
+  | {curr: {token: EndOfFile} as lexerToken} => Result.Ok(lexerToken)
   | lexer => {
-      let rec skipComment = token => {
-        let%Result (currToken', loc) = readToken(lexer, snd(token));
-        switch (currToken') {
-        | Comment(_) => skipComment((currToken', loc))
-        | _ => Ok((currToken', loc))
+      let rec skipComment = lexerToken => {
+        let%Result lexerToken' = readToken(lexer, lexerToken);
+        switch (lexerToken') {
+        | {token: Comment(_)} => skipComment(lexerToken')
+        | token => Ok(token)
         };
       };
 
-      skipComment(lexer.token);
+      skipComment(lexer.curr);
     };
 
 let advance = lexer => {
-  let%Result token = lookahead(lexer);
-  lexer.token = token;
-  Ok(token);
+  let%Result curr = lookahead(lexer);
+  lexer.curr = curr;
+  Ok(curr);
 };

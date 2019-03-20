@@ -12,24 +12,24 @@ let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
 
 let expectedError = (lexer: Lexer.t, token: Lexer.token) => {
   syntaxError(
-    "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.tokenDesc(lexer.token),
+    "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.tokenDesc(lexer.curr),
   );
 };
 
 let expect = (lexer: Lexer.t, token: Lexer.token) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | currToken when currToken == token => Lexer.advance(lexer)
   | _ => expectedError(lexer, token)
   };
 
 let skip = (lexer: Lexer.t, skipToken: Lexer.token): result(bool) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | token when token == skipToken => Lexer.advance(lexer)->Result.map(_ => true)
   | _ => Ok(false)
   };
 
 let skipKeyword = (lexer: Lexer.t, value: string): result(bool) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | Name(name) when name == value => Lexer.advance(lexer)->Result.map(_ => true)
   | _ => Ok(false)
   };
@@ -37,14 +37,14 @@ let skipKeyword = (lexer: Lexer.t, value: string): result(bool) =>
 let expectKeyword = (lexer: Lexer.t, value: string): result(unit) => {
   let%Result skipped = skipKeyword(lexer, value);
   if (!skipped) {
-    syntaxError("Expected " ++ value ++ ", found " ++ Lexer.tokenDesc(lexer.token));
+    syntaxError("Expected " ++ value ++ ", found " ++ Lexer.tokenDesc(lexer.curr));
   } else {
     Ok();
   };
 };
 
 let unexpected = (lexer: Lexer.t) => {
-  syntaxError("Unexpected " ++ Lexer.tokenDesc(lexer.token));
+  syntaxError("Unexpected " ++ Lexer.tokenDesc(lexer.curr));
 };
 
 let any =
@@ -95,9 +95,9 @@ let many =
 
 let parseName =
   fun
-  | ({token: (Name(value), _)} as lexer: Lexer.t) => {
-      Lexer.advance(lexer)->Result.map(_ => value);
-    }
+  | ({curr: {token: Name(value)}} as lexer: Lexer.t) =>
+    Lexer.advance(lexer)->Result.map(_ => value)
+
   | lexer => expectedError(lexer, Name(""));
 
 let parseNamedType = (lexer: Lexer.t) => {
@@ -113,7 +113,7 @@ let parseVariable = (lexer: Lexer.t) => {
 
 let rec parseValueLiteral = (lexer: Lexer.t, ~isConst: bool): result(value) =>
   Result.(
-    switch (fst(lexer.token)) {
+    switch (lexer.curr.token) {
     | BracketOpen =>
       any(lexer, BracketOpen, parseValueLiteral(~isConst), BracketClose)
       ->map(list => `List(list))
@@ -180,7 +180,7 @@ let parseArgument = (lexer: Lexer.t, ~isConst): result((string, value)) => {
 };
 
 let parseArguments = (lexer: Lexer.t, ~isConst: bool) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | ParenOpen => many(lexer, ParenOpen, parseArgument(~isConst), ParenClose)
   | _ => Ok([])
   };
@@ -194,7 +194,7 @@ let parseDirective = (lexer: Lexer.t, ~isConst: bool): result(directive) => {
 
 let parseDirectives = (lexer: Lexer.t, ~isConst: bool) => {
   let rec collect = directives =>
-    switch (fst(lexer.token)) {
+    switch (lexer.curr.token) {
     | At =>
       let%Result directive = parseDirective(lexer, ~isConst);
       collect([directive, ...directives]);
@@ -207,7 +207,7 @@ let parseDirectives = (lexer: Lexer.t, ~isConst: bool) => {
 /* Operation Definitions */
 
 let parseOperationType = (lexer: Lexer.t): result(GraphqlLanguageAst.operationType) => {
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | Name("query") => Result.Ok(Query)
   | Name("mutation") => Ok(Mutation)
   | Name("subscription") => Ok(Subscription)
@@ -224,7 +224,7 @@ let parseVariableDefinition = (lexer: Lexer.t): result(variableDefinition) => {
 };
 
 let parseVariableDefinitions = (lexer: Lexer.t) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | ParenOpen => many(lexer, ParenOpen, parseVariableDefinition, ParenClose)
   | _ => Ok([])
   };
@@ -234,13 +234,13 @@ let rec parseSelectionSet = (lexer: Lexer.t): result(list(selection)) => {
 }
 
 and parseSelection = (lexer: Lexer.t): result(selection) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | Spread => parseFragment(lexer)
   | _ => parseField(lexer)
   }
 
 and parseFragmentName = (lexer: Lexer.t) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | Name("on") => unexpected(lexer)
   | _ => parseName(lexer)
   }
@@ -249,7 +249,7 @@ and parseFragment = (lexer: Lexer.t) => {
   let%Result _ = expect(lexer, Spread);
   let%Result hasTypeCondition = skipKeyword(lexer, "on");
 
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | Name(_) when !hasTypeCondition =>
     let%Result name = parseFragmentName(lexer);
     let%Result directives = parseDirectives(lexer, ~isConst=false);
@@ -284,7 +284,7 @@ and parseField = (lexer: Lexer.t) => {
   let%Result arguments = parseArguments(lexer, ~isConst=false);
   let%Result directives = parseDirectives(lexer, ~isConst=false);
   let%Result selectionSet =
-    switch (fst(lexer.token)) {
+    switch (lexer.curr.token) {
     | BraceOpen => parseSelectionSet(lexer)
     | _ => Ok([])
     };
@@ -293,7 +293,7 @@ and parseField = (lexer: Lexer.t) => {
 };
 
 let parseOperationDefinition = (lexer: Lexer.t) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | BraceOpen =>
     let%Result selectionSet = parseSelectionSet(lexer);
     Ok(
@@ -309,8 +309,8 @@ let parseOperationDefinition = (lexer: Lexer.t) =>
     let%Result operationType = parseOperationType(lexer);
     let%Result _ = Lexer.advance(lexer);
     let%Result name =
-      switch (lexer.token) {
-      | (Name(name), _) => Lexer.advance(lexer)->Result.map(_ => Some(name))
+      switch (lexer.curr.token) {
+      | Name(name) => Lexer.advance(lexer)->Result.map(_ => Some(name))
       | _ => Ok(None)
       };
 
@@ -334,7 +334,7 @@ let parseFragmentDefinition = (lexer: Lexer.t) => {
 };
 
 let parseExecutableDefinition = (lexer: Lexer.t) =>
-  switch (fst(lexer.token)) {
+  switch (lexer.curr.token) {
   | Name("query" | "mutation" | "subscription")
   | BraceOpen => parseOperationDefinition(lexer)
   | Name("fragment") => parseFragmentDefinition(lexer)
