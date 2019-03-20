@@ -69,11 +69,13 @@ type t = {
 };
 
 /* (line:col) kind: <kind>, value: <value> */
-let printToken = ((token: token, loc: location)) => {
-  let locationDescription =
-    "(" ++ string_of_int(loc.line) ++ ":" ++ string_of_int(loc.column) ++ ")";
-
-  let tokenDescription =
+let tokenDesc = ((token: token, loc: location)) => {
+  "("
+  ++ string_of_int(loc.line)
+  ++ ":"
+  ++ string_of_int(loc.column)
+  ++ ")"
+  ++ (
     switch (token) {
     | Name(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
     | Int(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
@@ -81,12 +83,12 @@ let printToken = ((token: token, loc: location)) => {
     | String(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
     | Comment(v) => " kind: '" ++ tokenKind(token) ++ "', value: " ++ v
     | token => " kind: '" ++ tokenKind(token) ++ "'"
-    };
-
-  locationDescription ++ tokenDescription;
+    }
+  );
 };
 
-let isChar = (source, position, char) => position < String.length(source) && source.[position] == char;
+let isChar = (source, position, char) =>
+  position < String.length(source) && source.[position] == char;
 
 /**
  * Reads from source starting at startPosition until it finds a non-whitespace

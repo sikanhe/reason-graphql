@@ -12,7 +12,7 @@ let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
 
 let expectedError = (lexer: Lexer.t, token: Lexer.token) => {
   syntaxError(
-    "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.printToken(lexer.token),
+    "Expected" ++ Lexer.tokenKind(token) ++ ", found " ++ Lexer.tokenDesc(lexer.token),
   );
 };
 
@@ -37,14 +37,14 @@ let skipKeyword = (lexer: Lexer.t, value: string): result(bool) =>
 let expectKeyword = (lexer: Lexer.t, value: string): result(unit) => {
   let%Result skipped = skipKeyword(lexer, value);
   if (!skipped) {
-    syntaxError("Expected " ++ value ++ ", found " ++ Lexer.printToken(lexer.token));
+    syntaxError("Expected " ++ value ++ ", found " ++ Lexer.tokenDesc(lexer.token));
   } else {
     Ok();
   };
 };
 
 let unexpected = (lexer: Lexer.t) => {
-  syntaxError("Unexpected " ++ Lexer.printToken(lexer.token));
+  syntaxError("Unexpected " ++ Lexer.tokenDesc(lexer.token));
 };
 
 let any =
@@ -111,10 +111,9 @@ let parseVariable = (lexer: Lexer.t) => {
   Ok(`Variable(name));
 };
 
-let rec parseValueLiteral =
-        ({token: (token, _)} as lexer: Lexer.t, ~isConst: bool): result(value) =>
+let rec parseValueLiteral = (lexer: Lexer.t, ~isConst: bool): result(value) =>
   Result.(
-    switch (token) {
+    switch (fst(lexer.token)) {
     | BracketOpen =>
       any(lexer, BracketOpen, parseValueLiteral(~isConst), BracketClose)
       ->map(list => `List(list))
