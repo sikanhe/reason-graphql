@@ -386,33 +386,43 @@ let readToken = (lexer, from): result(tokenResult) => {
   let position = positionAfterWhitespace(lexer, from);
   let line = lexer.line;
   let column = 1 + position - lexer.lineStart;
-
-  let location = {start: position, end_: position + 1, line, column};
+  let sourceLength = String.length(source);
+  let singleWidth = {start: position, end_: position + 1, line, column};
 
   if (position >= String.length(source)) {
-    Ok({token: EndOfFile, location});
+    Ok({
+      token: EndOfFile,
+      location: {
+        start: sourceLength,
+        end_: sourceLength,
+        line,
+        column,
+      },
+    });
   } else {
     switch (source.[position]) {
-    | '!' => Ok({token: Bang, location})
-    | '$' => Ok({token: Dollar, location})
-    | '&' => Ok({token: Amp, location})
-    | '(' => Ok({token: ParenOpen, location})
-    | ')' => Ok({token: ParenClose, location})
-    | ':' => Ok({token: Colon, location})
-    | '=' => Ok({token: Equals, location})
-    | '@' => Ok({token: At, location})
-    | '[' => Ok({token: BracketOpen, location})
-    | ']' => Ok({token: BracketClose, location})
-    | '{' => Ok({token: BraceOpen, location})
-    | '|' => Ok({token: Pipe, location})
-    | '}' => Ok({token: BraceClose, location})
+    | '!' => Ok({token: Bang, location: singleWidth})
+    | '$' => Ok({token: Dollar, location: singleWidth})
+    | '&' => Ok({token: Amp, location: singleWidth})
+    | '(' => Ok({token: ParenOpen, location: singleWidth})
+    | ')' => Ok({token: ParenClose, location: singleWidth})
+    | ':' => Ok({token: Colon, location: singleWidth})
+    | '=' => Ok({token: Equals, location: singleWidth})
+    | '@' => Ok({token: At, location: singleWidth})
+    | '[' => Ok({token: BracketOpen, location: singleWidth})
+    | ']' => Ok({token: BracketClose, location: singleWidth})
+    | '{' => Ok({token: BraceOpen, location: singleWidth})
+    | '|' => Ok({token: Pipe, location: singleWidth})
+    | '}' => Ok({token: BraceClose, location: singleWidth})
     | '.' =>
       if (isChar(source, position + 1, '.') && isChar(source, position + 2, '.')) {
         Ok({
           token: Spread,
           location: {
-            ...location,
+            start: position,
             end_: position + 3,
+            line,
+            column,
           },
         });
       } else if (position + 1 >= String.length(source)) {
