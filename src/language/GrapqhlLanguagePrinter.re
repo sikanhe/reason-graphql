@@ -17,7 +17,7 @@ let block =
 let rec printValue: value => string =
   fun
   | `Int(int) => string_of_int(int)
-  | `Float(float) => string_of_float(float)
+  | `Float(float) => Js.Float.toString(float)
   | `String(string) => string->Js.Json.string->Js.Json.stringify
   | `Boolean(bool) => string_of_bool(bool)
   | `Null => "null"

@@ -1126,7 +1126,7 @@ module Make = (Io: IO) => {
       fun
       | `Null => "null"
       | `Int(i) => string_of_int(i)
-      | `Float(f) => string_of_float(f)
+      | `Float(f) => Js.Float.toString(f)
       | `String(s) => Printf.sprintf("\"%s\"", s)
       | `Boolean(b) => string_of_bool(b)
       | `Enum(e) => e

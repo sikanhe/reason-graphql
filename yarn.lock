@@ -612,10 +612,10 @@ browser-resolve@^1.11.3:
   dependencies:
     resolve "1.1.7"
 
-bs-platform@^5.0.0-dev.4:
-  version "5.0.0-dev.4"
-  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-5.0.0-dev.4.tgz#c482347b9a8c09ac5a4f12059d71ca31f5506b86"
-  integrity sha512-FxwTwAWE2xxV+lKbWn0SV0+0qS0Wl9NRa+RAUEYYeS05a6SmTLiEQC6rlSJ+FTSedvrgL7VL2R/5lcYFNqwQ7Q==
+bs-platform@^5.0.0:
+  version "5.0.0"
+  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-5.0.0.tgz#f9fded818bafc3891aeb85eb4e0d95b8d8f8b4d7"
+  integrity sha512-zxLobdIaf/r7go47hOgxcd6C0ANh7MYMEtZNb9Al7JdoekzFZI50F4GpZpP8kMh9Z+M5PoPE1WuryT4S8mT8Kg==
 
 bsb-native@4.0.6:
   version "4.0.6"
