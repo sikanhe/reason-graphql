@@ -60,14 +60,14 @@ let tokenKind =
   | String(_) => "String"
   | Comment(_) => "Comment";
 
-type lexerToken = {
+type tokenWithLocation = {
   token,
   location,
 };
 
 type t = {
   source: string,
-  mutable curr: lexerToken,
+  mutable curr: tokenWithLocation,
   mutable line: int,
   mutable lineStart: int,
 };
@@ -140,7 +140,7 @@ let isNameChar =
  *
  * [_A-Za-z][_0-9A-Za-z]*
  */
-let readName = (source, ~start, ~line, ~column): lexerToken => {
+let readName = (source, ~start, ~line, ~column): tokenWithLocation => {
   let rec aux = position =>
     switch (source.[position]) {
     | 'A'..'Z'
@@ -161,11 +161,9 @@ let readName = (source, ~start, ~line, ~column): lexerToken => {
 };
 
 /**
- * Reads a comment token from the source file.
- *
  * #[\u0009\u0020-\uFFFF]*
  */
-let readComment = (source, ~start, ~line, ~column): lexerToken => {
+let readComment = (source, ~start, ~line, ~column): tokenWithLocation => {
   let rec aux = position =>
     if (position > String.length(source)) {
       position;
@@ -213,7 +211,7 @@ let readDigits = (source, startingPosition): result(int) => {
  * Int:   -?(0|[1-9][0-9]*)
  * Float: -?(0|[1-9][0-9]*)(\.[0-9]+)?((E|e)(+|-)?[0-9]+)?
  */
-let readNumber = (source, ~start, ~line, ~column): result(lexerToken) => {
+let readNumber = (source, ~start, ~line, ~column): result(tokenWithLocation) => {
   let isFloat = ref(false);
   let position = ref(start);
 
@@ -304,7 +302,7 @@ let uniCharCode = (a, b, c, d) =>
  *
  * "([^"\\\u000A\u000D]|(\\(u[0-9a-fA-F]{4}|["\\/bfnrt])))*"
  */
-let readString = (source, ~start, ~line, ~column): result(lexerToken) => {
+let readString = (source, ~start, ~line, ~column): result(tokenWithLocation) => {
   let rec aux = (value, position, chunkStart) => {
     let%Result () =
       if (position >= String.length(source)) {
@@ -383,7 +381,7 @@ let readString = (source, ~start, ~line, ~column): result(lexerToken) => {
  * punctuators immediately or calls the appropriate helper function for more
  * complicated tokens.
  */
-let readToken = (lexer, prevToken): result(lexerToken) => {
+let readToken = (lexer, prevToken): result(tokenWithLocation) => {
   let {source} = lexer;
   let position = positionAfterWhitespace(lexer, prevToken.location.end_);
   let line = lexer.line;
@@ -451,12 +449,12 @@ let make = source => {
 
 let lookahead =
   fun
-  | {curr: {token: EndOfFile} as lexerToken} => Result.Ok(lexerToken)
+  | {curr: {token: EndOfFile} as tokenWithLocation} => Result.Ok(tokenWithLocation)
   | lexer => {
-      let rec skipComment = lexerToken => {
-        let%Result lexerToken' = readToken(lexer, lexerToken);
-        switch (lexerToken') {
-        | {token: Comment(_)} => skipComment(lexerToken')
+      let rec skipComment = tokenWithLocation => {
+        let%Result tokenWithLocation' = readToken(lexer, tokenWithLocation);
+        switch (tokenWithLocation') {
+        | {token: Comment(_)} => skipComment(tokenWithLocation')
         | token => Ok(token)
         };
       };
