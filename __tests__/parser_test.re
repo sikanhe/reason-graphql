@@ -35,8 +35,8 @@ describe("Parse and print a graphql query", () => {
     }
  |};
 
-  let document = Parser.parseExn(query);
-  let out = document->Printer.print;
+  let document = Parser.parse(query);
+  let out = document->Belt.Result.getExn->Printer.print;
 
   test("Should prettify the query correctly", () => {
     let pretty = {|query MyQuery($id: Int, $another: [String!]!) {
