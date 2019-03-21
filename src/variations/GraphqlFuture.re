@@ -6,4 +6,4 @@ module Future = {
 };
 
 module Schema = Graphql.Schema.Make(Future);
-module Language = Graphql.Language
+module Language = Graphql.Language;

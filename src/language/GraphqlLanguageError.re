@@ -1,1 +1,2 @@
-type t = SyntaxError(string)
+type t =
+  | SyntaxError(string);

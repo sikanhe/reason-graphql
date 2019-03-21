@@ -260,9 +260,9 @@ let readNumber = (source, ~start, ~line, ~column): result(tokenWithLocation) => 
   let loc = {start, end_: position^, line, column};
 
   let tok =
-    isFloat^ ?
-      Float(String.sub(source, start, position^ - start)) :
-      Int(String.sub(source, start, position^ - start));
+    isFloat^
+      ? Float(String.sub(source, start, position^ - start))
+      : Int(String.sub(source, start, position^ - start));
 
   Ok({token: tok, location: loc});
 };
@@ -276,13 +276,13 @@ let readNumber = (source, ~start, ~line, ~column): result(tokenWithLocation) => 
  * Returns -1 on error.
  */
 let char2hex = c =>
-  c >= 48 && c <= 57 ?
-    c - 48 : // 0-9
-    c >= 65 && c <= 70 ?
-      c - 55 : // c-F
-      c >= 97 && c <= 102 ?
-        c - 87 : // a-f
-        (-1);
+  c >= 48 && c <= 57
+    ? c - 48  // 0-9
+    : c >= 65 && c <= 70
+        ? c - 55  // c-F
+        : c >= 97 && c <= 102
+            ? c - 87  // a-f
+            : (-1);
 
 /**
  * Converts four hexadecimal chars to the integer that the

@@ -256,12 +256,12 @@ and parseFragment = (lexer: Lexer.t) => {
     Ok(FragmentSpread({name, directives}));
   | _ =>
     let typeCondition =
-      hasTypeCondition ?
-        switch (parseName(lexer)) {
-        | Ok(name) => Some(name)
-        | _ => None
-        } :
-        None;
+      hasTypeCondition
+        ? switch (parseName(lexer)) {
+          | Ok(name) => Some(name)
+          | _ => None
+          }
+        : None;
     let%Result directives = parseDirectives(lexer, ~isConst=false);
     let%Result selectionSet = parseSelectionSet(lexer);
     Ok(InlineFragment({typeCondition, directives, selectionSet}));
