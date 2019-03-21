@@ -381,9 +381,9 @@ let readString = (source, ~start, ~line, ~column): result(tokenResult) => {
  * punctuators immediately or calls the appropriate helper function for more
  * complicated tokens.
  */
-let readToken = (lexer, prevToken): result(tokenResult) => {
+let readToken = (lexer, from): result(tokenResult) => {
   let {source} = lexer;
-  let position = positionAfterWhitespace(lexer, prevToken.location.end_);
+  let position = positionAfterWhitespace(lexer, from);
   let line = lexer.line;
   let column = 1 + position - lexer.lineStart;
 
@@ -451,10 +451,10 @@ let lookahead =
   fun
   | {curr: {token: EndOfFile} as tokenResult} => Result.Ok(tokenResult)
   | lexer => {
-      let rec skipComment = tokenResult => {
-        let%Result tokenResult' = readToken(lexer, tokenResult);
-        switch (tokenResult') {
-        | {token: Comment(_)} => skipComment(tokenResult')
+      let rec skipComment = prevToken => {
+        let%Result token = readToken(lexer, prevToken.location.end_);
+        switch (token) {
+        | {token: Comment(_)} => skipComment(token)
         | token => Ok(token)
         };
       };
