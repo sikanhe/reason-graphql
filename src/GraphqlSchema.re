@@ -2,6 +2,7 @@ open GraphqlLanguage;
 
 module Result = Belt.Result;
 module Option = Belt.Option;
+
 module List = {
   include Belt.List;
 
@@ -1091,11 +1092,11 @@ module Make = (Io: IO) => {
 
   type executeError = [
     resolveError
-    | `Mutations_not_configured
-    | `Subscriptions_not_configured
-    | `No_operation_found
-    | `Operation_name_required
-    | `Operation_not_found
+    | `MutationsNotConfigured
+    | `SubscriptionsNotConfigured
+    | `NoOperationFound
+    | `OperationNameRequired
+    | `OperationNotFound
   ];
 
   type executionResult = {data: Ast.constValue};
@@ -1523,7 +1524,7 @@ module Make = (Io: IO) => {
             Io.t(Result.t(Ast.constValue, resolveError)) :>
             Io.t(Result.t(Ast.constValue, [> executeError]))
         );
-      | None => Io.error(`Mutations_not_configured)
+      | None => Io.error(`MutationsNotConfigured)
       }
     | _ => failwith("Subscription Not implemented")
     };
@@ -1537,12 +1538,57 @@ module Make = (Io: IO) => {
     );
 
   let collectFragments = (document: Ast.document) => {
-    Belt.List.reduceReverse(document.definitions, StringMap.empty, (fragmentMap, x) =>
-      switch (x) {
+    Belt.List.reduceReverse(document.definitions, StringMap.empty, fragmentMap =>
+      fun
       | Ast.FragmentDefinition(fragment) => StringMap.set(fragmentMap, fragment.name, fragment)
       | _ => fragmentMap
-      }
     );
+  };
+
+  exception FragmentCycle(list(string));
+
+  let rec validateFragments = fragmentMap =>
+    try (
+      {
+        StringMap.forEach(fragmentMap, (name, _) =>
+          validateFragment(fragmentMap, StringSet.empty, name)
+        );
+        Ok(fragmentMap);
+      }
+    ) {
+    | FragmentCycle(fragmentNames) =>
+      let cycle = String.concat(", ", fragmentNames);
+      let err = Format.sprintf("Fragment cycle detected: %s", cycle);
+      Error(`ValidationError(err));
+    }
+
+  and validateFragment = (fragmentMap: fragmentMap, visited, name) => {
+    switch (StringMap.get(fragmentMap, name)) {
+    | None => ()
+    | Some(fragment) when StringSet.mem(fragment.name, visited) =>
+      raise(FragmentCycle(StringSet.elements(visited)))
+    | Some(fragment) =>
+      let visited' = StringSet.add(fragment.name, visited);
+      Belt.List.forEach(fragment.selectionSet, validateFragmentSelection(fragmentMap, visited'));
+    };
+  }
+
+  and validateFragmentSelection = (fragmentMap, visited, selection) =>
+    switch (selection) {
+    | Field(field) =>
+      Belt.List.forEach(field.selectionSet, validateFragmentSelection(fragmentMap, visited))
+    | InlineFragment(inlineFragment) =>
+      Belt.List.forEach(
+        inlineFragment.selectionSet,
+        validateFragmentSelection(fragmentMap, visited),
+      )
+    | FragmentSpread(fragmentSpread) =>
+      validateFragment(fragmentMap, visited, fragmentSpread.name)
+    };
+
+  let collectAndValidateFragments = doc => {
+    let fragments = collectFragments(doc);
+    validateFragments(fragments);
   };
 
   let okResponse = data => {
@@ -1571,17 +1617,17 @@ module Make = (Io: IO) => {
 
   let execute =
       (~variables: variableList=[], ~document: Ast.document, schema: schema('ctx), ~ctx: 'ctx) => {
-    let operations = collectOperations(document);
-    let fragmentMap = collectFragments(document);
+    let execute' = (schema, ctx, document) => {
+      let operations = collectOperations(document);
+      let%Io.Result fragmentMap = Io.return(collectAndValidateFragments(document));
 
-    let variableMap =
-      Belt.List.reduce(variables, StringMap.empty, (map, (name, value)) =>
-        StringMap.set(map, name, value)
-      );
+      let variableMap =
+        Belt.List.reduce(variables, StringMap.empty, (map, (name, value)) =>
+          StringMap.set(map, name, value)
+        );
 
-    let schema' = Introspection.addSchemaField(schema);
+      let schema' = Introspection.addSchemaField(schema);
 
-    let result =
       List.map(
         operations,
         operation => {
@@ -1589,20 +1635,22 @@ module Make = (Io: IO) => {
           executeOperation(executionContext, operation);
         },
       )
-      |> Belt.List.headExn;
+      ->Belt.List.headExn;
+    };
 
-    result->Io.map(
-      fun
-      | Ok(res) => okResponse(res)
-      | Error(`No_operation_found) => errorResponse("No operation found")
-      | Error(`Operation_not_found) => errorResponse("Operation not found")
-      | Error(`Operation_name_required) => errorResponse("Operation name required")
-      | Error(`Subscriptions_not_configured) => errorResponse("Subscriptions not configured")
-      | Error(`Mutations_not_configured) => errorResponse("Mutations not configured")
-      | Error(`ValidationError(msg)) => errorResponse(msg)
-      | Error(`ArgumentError(msg)) => errorResponse(msg)
-      | Error(`ResolveError(msg, path)) => errorResponse(msg, ~path),
-    );
+    execute'(schema, ctx, document)
+    ->Io.map(
+        fun
+        | Ok(res) => okResponse(res)
+        | Error(`NoOperationFound) => errorResponse("No operation found")
+        | Error(`OperationNotFound) => errorResponse("Operation not found")
+        | Error(`OperationNameRequired) => errorResponse("Operation name required")
+        | Error(`SubscriptionsNotConfigured) => errorResponse("Subscriptions not configured")
+        | Error(`MutationsNotConfigured) => errorResponse("Mutations not configured")
+        | Error(`ValidationError(msg)) => errorResponse(msg)
+        | Error(`ArgumentError(msg)) => errorResponse(msg)
+        | Error(`ResolveError(msg, path)) => errorResponse(msg, ~path),
+      );
   };
 
   let rec constValueToJson: Ast.constValue => Js.Json.t =
