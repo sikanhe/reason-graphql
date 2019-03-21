@@ -251,21 +251,21 @@ module Make = (Io: IO) => {
 
   type abstractType('ctx, 'a) = typ('ctx, option(abstractValue('ctx, 'a)));
 
-  type directive_location = [
+  type directiveLocation = [
     | `Query
     | `Mutation
     | `Subscription
     | `Field
-    | `Fragment_definition
-    | `Fragment_spread
-    | `Inline_fragment
-    | `Variable_definition
+    | `FragmentDefinition
+    | `FragmentSpread
+    | `InlineFragment
+    | `VariableDefinition
   ];
 
   type directiveInfo('args) = {
     name: string,
     description: option(string),
-    locations: list(directive_location),
+    locations: list(directiveLocation),
     args: Arg.arglist([ | `Skip | `Include], 'args),
     resolve: 'args,
   };
@@ -280,7 +280,7 @@ module Make = (Io: IO) => {
         Some(
           "Directs the executor to skip this field or fragment when the `if` argument is true.",
         ),
-      locations: [`Field, `Fragment_spread, `Inline_fragment],
+      locations: [`Field, `FragmentSpread, `InlineFragment],
       args: Arg.[arg("if", nonnull(boolean), ~description="Skipped when true.")],
       resolve:
         fun
@@ -295,7 +295,7 @@ module Make = (Io: IO) => {
         Some(
           "Directs the executor to include this field or fragment only when the `if` argument is true.",
         ),
-      locations: [`Field, `Fragment_spread, `Inline_fragment],
+      locations: [`Field, `FragmentSpread, `InlineFragment],
       args: Arg.[arg("if", nonnull(boolean), ~description="Included when true.")],
       resolve:
         fun
@@ -887,7 +887,7 @@ module Make = (Io: IO) => {
           ],
       });
 
-    let __directive_location =
+    let __directiveLocation =
       Enum({
         name: "__DirectiveLocation",
         description: None,
@@ -902,28 +902,28 @@ module Make = (Io: IO) => {
           },
           {name: "FIELD", description: None, deprecated: NotDeprecated, value: `Field},
           {
-            name: "FRAGMENT_DEFINITION",
+            name: "FragmentDefinition",
             description: None,
             deprecated: NotDeprecated,
-            value: `Fragment_definition,
+            value: `FragmentDefinition,
           },
           {
-            name: "FRAGMENT_SPREAD",
+            name: "FragmentSpread",
             description: None,
             deprecated: NotDeprecated,
-            value: `Fragment_spread,
+            value: `FragmentSpread,
           },
           {
-            name: "INLINE_FRAGMENT",
+            name: "InlineFragment",
             description: None,
             deprecated: NotDeprecated,
-            value: `Inline_fragment,
+            value: `InlineFragment,
           },
           {
-            name: "VARIABLE_DEFINITION",
+            name: "VariableDefinition",
             description: None,
             deprecated: NotDeprecated,
-            value: `Variable_definition,
+            value: `VariableDefinition,
           },
         ],
       });
@@ -957,7 +957,7 @@ module Make = (Io: IO) => {
               name: "locations",
               description: None,
               deprecated: NotDeprecated,
-              typ: NonNull(List(NonNull(__directive_location))),
+              typ: NonNull(List(NonNull(__directiveLocation))),
               args: Arg.[],
               lift: Io.ok,
               resolve: (_, Directive(d)) => d.locations,
