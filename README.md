@@ -19,7 +19,7 @@ Like the ReasonReact implementation, GraphQL schemas defined by this library can
 
 With Typescript (or Flow), you are required to manually write out the types for all your fields, or use a type generation cli tool like https://graphql-code-generator.com - on top of a lot of manual typecasting, because its typesystem cannot express advanced concepts like heterogenous lists (essentially what arguments and fields are, in GraphQL). 
 
-To give you a taste of what this means - if we define a field argument called `id` with type `string` with graphql-js, even with typescript or flow, it cannot infer the type of `args` inside the resolver to be `{name: string}`. We have to manually type it, which makes it very error-prone. Forget about tracking the nullability of the fields - I have seen many production errors where the manually casted types are out of sync with the schema definition, and vice versa, when the schema gets out of sync with the underlying database models.
+To give you a taste of what this means - if we define a field argument called `id` with type `string` with graphql-js, even with typescript or flow, it cannot infer the type of `args` inside the resolver to be `{id: string}`. We have to manually type it, which makes it very error-prone. Forget about tracking the nullability of the fields - I have seen many production errors where the manually casted types are out of sync with the schema definition, and vice versa, when the schema gets out of sync with the underlying database models.
 
 ```typescript
   type PersonByIdArgs = {
