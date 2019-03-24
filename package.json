@@ -1,6 +1,16 @@
 {
   "name": "reason-graphql",
   "version": "0.3.0",
+  "author": "Sikan He",
+  "license": "MIT",
+  "repository": "https://github.com/sikanhe/reason-graphql",
+  "homepage": "https://github.com/sikanhe/reason-graphql#readme",
+  "keywords": [
+    "BuckleScript",
+    "GraphQL",
+    "Reason",
+    "ReasonML"
+  ],
   "scripts": {
     "build": "bsb -make-world",
     "start": "bsb -make-world -w",
@@ -16,14 +26,6 @@
       "**/?(*_)(spec|test).bs.js?(x)"
     ]
   },
-  "keywords": [
-    "BuckleScript",
-    "GraphQL",
-    "Reason",
-    "ReasonML"
-  ],
-  "author": "Sikan He",
-  "license": "MIT",
   "devDependencies": {
     "@glennsl/bs-jest": "^0.4.8",
     "bs-platform": "^5.0.0"
