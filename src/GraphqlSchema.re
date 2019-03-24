@@ -1653,29 +1653,6 @@ module Make = (Io: IO) => {
       );
   };
 
-  let rec constValueToJson: Ast.constValue => Js.Json.t =
-    fun
-    | `String(string)
-    | `Enum(string) => Js.Json.string(string)
-    | `Float(float) => Js.Json.number(float)
-    | `Int(int) => Js.Json.number(float_of_int(int))
-    | `Boolean(bool) => Js.Json.boolean(bool)
-    | `List(list) =>
-      List.map(list, item => constValueToJson(item)) |> Array.of_list |> Js.Json.array
-    | `Map(assocList) => {
-        let dict =
-          Belt.List.reduceReverse(
-            assocList,
-            Js.Dict.empty(),
-            (dict, (name, value)) => {
-              Js.Dict.set(dict, name, constValueToJson(value));
-              dict;
-            },
-          );
-        Js.Json.object_(dict);
-      }
-    | `Null => Js.Json.null;
-
   let resultToJson: Io.t(Ast.constValue) => Io.t(Js.Json.t) =
-    result => Io.map(result, constValueToJson);
+    result => Io.map(result, GraphqlJson.fromConstValue);
 };

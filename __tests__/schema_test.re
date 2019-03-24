@@ -17,7 +17,7 @@ describe("Basic Queries", () => {
 
     let expected =
       Schema.okResponse(`Map([("hero", `Map([("name", `String("R2-D2"))]))]))
-      |> Schema.constValueToJson;
+      |> GraphqlJson.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -59,7 +59,7 @@ describe("Basic Queries", () => {
           ),
         ]),
       )
-      |> Schema.constValueToJson;
+      |> GraphqlJson.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -149,7 +149,7 @@ describe("Nested Queries", () =>
           ),
         ]),
       )
-      |> Schema.constValueToJson;
+      |> GraphqlJson.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -174,13 +174,19 @@ describe("Mutation operation", () => {
     }
   |};
 
+  let variables =
+    "{\"id\": 1000, \"name\": \"Sikan Skywalker\"}"
+    ->Js.Json.parseExn
+    ->GraphqlJson.toVariables
+    ->Belt.Result.getExn;
+
   let result =
     schema
     |> Schema.execute(
          _,
          ~document=Parser.parse(mutation)->Belt.Result.getExn,
          ~ctx=(),
-         ~variables=[("id", `Int(1000)), ("name", `String("Sikan Skywalker"))],
+         ~variables,
        )
     |> Schema.resultToJson;
 
@@ -200,7 +206,7 @@ describe("Mutation operation", () => {
           ),
         ]),
       )
-      |> Schema.constValueToJson;
+      |> GraphqlJson.fromConstValue;
 
     Schema.Io.map(result, res => assertion(expect(res) |> toEqual(expected)))->ignore;
   });
@@ -220,7 +226,7 @@ describe("Using aliases to change the key in the response", () => {
 
     let expected =
       Schema.okResponse(`Map([("luke", `Map([("name", `String("Luke Skywalker"))]))]))
-      |> Schema.constValueToJson;
+      |> GraphqlJson.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -249,7 +255,7 @@ describe("Using aliases to change the key in the response", () => {
           ("leia", `Map([("name", `String("Leia Organa"))])),
         ]),
       )
-      |> Schema.constValueToJson;
+      |> GraphqlJson.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -289,7 +295,7 @@ describe("Uses fragments to express more complex queries", () => {
           ),
         ]),
       )
-      |> Schema.constValueToJson;
+      |> GraphqlJson.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -330,7 +336,7 @@ describe("Uses fragments to express more complex queries", () => {
           ),
         ]),
       )
-      |> Schema.constValueToJson;
+      |> GraphqlJson.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
