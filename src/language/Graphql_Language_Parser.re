@@ -1,14 +1,14 @@
-open GraphqlLanguageAst;
-module Lexer = GraphqlLanguageLexer;
+open Graphql_Language_Ast;
+module Lexer = Graphql_Language_Lexer;
 
 module Result = {
   include Belt.Result;
   let let_ = flatMap;
 };
 
-type result('a) = Result.t('a, GraphqlLanguageError.t);
+type result('a) = Result.t('a, Graphql_Language_Error.t);
 
-let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
+let syntaxError = a => Result.Error(Graphql_Language_Error.SyntaxError(a));
 
 let expectedError = (lexer: Lexer.t, token: Lexer.token) => {
   syntaxError(
@@ -206,7 +206,7 @@ let parseDirectives = (lexer: Lexer.t, ~isConst: bool) => {
 
 /* Operation Definitions */
 
-let parseOperationType = (lexer: Lexer.t): result(GraphqlLanguageAst.operationType) => {
+let parseOperationType = (lexer: Lexer.t): result(Graphql_Language_Ast.operationType) => {
   switch (lexer.curr.token) {
   | Name("query") => Result.Ok(Query)
   | Name("mutation") => Ok(Mutation)

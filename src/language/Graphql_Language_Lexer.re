@@ -3,8 +3,8 @@ module Result = {
   let let_ = flatMap;
 };
 
-type result('a) = Result.t('a, GraphqlLanguageError.t);
-let syntaxError = a => Result.Error(GraphqlLanguageError.SyntaxError(a));
+type result('a) = Result.t('a, Graphql_Language_Error.t);
+let syntaxError = a => Result.Error(Graphql_Language_Error.SyntaxError(a));
 
 type location = {
   start: int,

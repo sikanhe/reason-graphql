@@ -1,6 +1,5 @@
 open Jest;
-open Graphql.Language;
-module Printer = GrapqhlLanguagePrinter;
+open Graphql_Language;
 
 describe("Parse and print a graphql query", () => {
   open Expect;

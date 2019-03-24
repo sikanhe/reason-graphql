@@ -1,4 +1,4 @@
-let rec fromConstValue: GraphqlLanguageAst.constValue => Js.Json.t =
+let rec fromConstValue: Graphql_Language_Ast.constValue => Js.Json.t =
   fun
   | `String(string)
   | `Enum(string) => Js.Json.string(string)
@@ -21,7 +21,7 @@ let rec fromConstValue: GraphqlLanguageAst.constValue => Js.Json.t =
     }
   | `Null => Js.Json.null;
 
-let rec toConstValue = (json: Js.Json.t): GraphqlLanguageAst.constValue =>
+let rec toConstValue = (json: Js.Json.t): Graphql_Language_Ast.constValue =>
   switch (Js.Json.classify(json)) {
   | JSONString(value) => `String(value)
   | JSONNumber(num) when Js.Math.floor_float(num) == num => `Int(int_of_float(num))
@@ -40,7 +40,7 @@ let rec toConstValue = (json: Js.Json.t): GraphqlLanguageAst.constValue =>
   };
 
 let toVariables =
-    (json: Js.Json.t): Belt.Result.t(list((string, GraphqlLanguageAst.constValue)), string) => {
+    (json: Js.Json.t): Belt.Result.t(list((string, Graphql_Language_Ast.constValue)), string) => {
   switch (Js.Json.classify(json)) {
   | JSONObject(dict) =>
     Ok(

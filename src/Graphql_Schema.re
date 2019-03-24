@@ -1,4 +1,4 @@
-open GraphqlLanguage;
+open Graphql_Language;
 
 module Result = Belt.Result;
 module Option = Belt.Option;
@@ -1654,5 +1654,5 @@ module Make = (Io: IO) => {
   };
 
   let resultToJson: Io.t(Ast.constValue) => Io.t(Js.Json.t) =
-    result => Io.map(result, GraphqlJson.fromConstValue);
+    result => Io.map(result, Graphql_Json.fromConstValue);
 };

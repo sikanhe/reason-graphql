@@ -1,4 +1,4 @@
-open GraphqlLanguageAst;
+open Graphql_Language_Ast;
 
 let join = (list, seperator) => Belt.List.keep(list, x => x !== "") |> String.concat(seperator);
 

@@ -17,7 +17,7 @@ describe("Basic Queries", () => {
 
     let expected =
       Schema.okResponse(`Map([("hero", `Map([("name", `String("R2-D2"))]))]))
-      |> GraphqlJson.fromConstValue;
+      |> Graphql_Json.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -59,7 +59,7 @@ describe("Basic Queries", () => {
           ),
         ]),
       )
-      |> GraphqlJson.fromConstValue;
+      |> Graphql_Json.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -149,7 +149,7 @@ describe("Nested Queries", () =>
           ),
         ]),
       )
-      |> GraphqlJson.fromConstValue;
+      |> Graphql_Json.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -177,7 +177,7 @@ describe("Mutation operation", () => {
   let variables =
     "{\"id\": 1000, \"name\": \"Sikan Skywalker\"}"
     ->Js.Json.parseExn
-    ->GraphqlJson.toVariables
+    ->Graphql_Json.toVariables
     ->Belt.Result.getExn;
 
   let result =
@@ -206,7 +206,7 @@ describe("Mutation operation", () => {
           ),
         ]),
       )
-      |> GraphqlJson.fromConstValue;
+      |> Graphql_Json.fromConstValue;
 
     Schema.Io.map(result, res => assertion(expect(res) |> toEqual(expected)))->ignore;
   });
@@ -226,7 +226,7 @@ describe("Using aliases to change the key in the response", () => {
 
     let expected =
       Schema.okResponse(`Map([("luke", `Map([("name", `String("Luke Skywalker"))]))]))
-      |> GraphqlJson.fromConstValue;
+      |> Graphql_Json.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -255,7 +255,7 @@ describe("Using aliases to change the key in the response", () => {
           ("leia", `Map([("name", `String("Leia Organa"))])),
         ]),
       )
-      |> GraphqlJson.fromConstValue;
+      |> Graphql_Json.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -295,7 +295,7 @@ describe("Uses fragments to express more complex queries", () => {
           ),
         ]),
       )
-      |> GraphqlJson.fromConstValue;
+      |> Graphql_Json.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
@@ -336,7 +336,7 @@ describe("Uses fragments to express more complex queries", () => {
           ),
         ]),
       )
-      |> GraphqlJson.fromConstValue;
+      |> Graphql_Json.fromConstValue;
 
     schema
     ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
