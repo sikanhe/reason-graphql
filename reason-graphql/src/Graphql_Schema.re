@@ -629,6 +629,15 @@ module Make = (Io: IO) => {
                 | Arg.Arg(a) => AnyArgTyp(a.typ)
                 },
             }),
+            Field({
+              name: "defaultValue",
+              typ: string,
+              args: Arg.[],
+              deprecated: NotDeprecated,
+              description: None,
+              lift: Io.ok,
+              resolve: (_, AnyArg(_)) => None
+            }),
           ],
       })
     and __type: 'ctx. typ('ctx, option(anyTyp)) =

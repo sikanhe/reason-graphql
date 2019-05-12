@@ -23,7 +23,7 @@ let parseBodyIntoDocumentAndVariables = req => {
             | Some(variablesJson) =>
               switch (Graphql.Json.toVariables(variablesJson)) {
               | Ok(variables) => DocumentAndVariables(document, variables)
-              | Error(e) => ParseError(e)
+              | Error(_) => Document(document)
               }
             | None => Document(document)
             }
@@ -46,7 +46,7 @@ let middleware = (~provideCtx, ~graphiql=false, schema) =>
     | "GET" when graphiql =>
       res
       |> Response.status(Response.StatusCode.Ok)
-      |> Response.sendString("TODO: Show Graphiql UI")
+      |> Response.sendString(Graphiql.html)
       |> Js.Promise.resolve
     | "POST" =>
       switch (parseBodyIntoDocumentAndVariables(req)) {
