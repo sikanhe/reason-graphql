@@ -7,8 +7,6 @@ jobs:
     environment:
       TEST_REPORTS: /tmp/test-reports
 
-    working_directory: ~/reason-graphql-server/reason-graphql
-
     steps:
       - checkout
 
