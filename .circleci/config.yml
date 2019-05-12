@@ -10,17 +10,13 @@ jobs:
     steps:
       - checkout
 
-      - run:
-          name: cd
-          command: cd ./reason-graphql
-
       - restore_cache:
           name: Restore Yarn Package Cache
           keys:
             - yarn-packages-{{ checksum "yarn.lock" }}
       - run:
           name: Install Dependencies
-          command: yarn install --frozen-lockfile
+          command: cd ./reason-graphql && yarn install --frozen-lockfile
 
       - save_cache:
           name: Save Yarn Package Cache
@@ -30,4 +26,4 @@ jobs:
 
       - run:
           name: tests
-          command: yarn test
+          command: cd ./reason-graphql && yarn test
