@@ -1,0 +1,33 @@
+{
+  "name": "reason-graphql-bs-express",
+  "version": "0.2.0",
+  "author": "Sikan He",
+  "license": "MIT",
+  "repository": "https://github.com/sikanhe/reason-graphql/reason-graphql-bs-express",
+  "homepage": "https://github.com/sikanhe/reason-graphql/reason-graphql-bs-express#readme",
+  "keywords": [
+    "BuckleScript",
+    "GraphQL",
+    "Express",
+    "Reason",
+    "ReasonML"
+  ],
+  "scripts": {
+    "build": "bsb -make-world",
+    "start": "bsb -make-world -w",
+    "clean": "bsb -clean-world",
+    "test": "yarn build && jest"
+  },
+  "files": [
+    "src/",
+    "bsconfig.json"
+  ],
+  "devDependencies": {
+    "bs-platform": "^5.0.0"
+  },
+  "dependencies": {
+    "bs-express": "^0.12.0",
+    "reason-future": "^2.4.0",
+    "reason-graphql": ">= 0.1.0"
+  }
+}

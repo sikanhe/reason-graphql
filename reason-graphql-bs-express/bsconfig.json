@@ -1,0 +1,26 @@
+{
+  "name": "reason-graphql-bs-express",
+  "version": "0.1.0",
+  "sources": [
+    {
+      "dir": "src",
+      "subdirs": true
+    },
+    {
+      "dir": "examples",
+      "type" : "dev"
+    }
+  ],
+  "package-specs": {
+    "module": "commonjs",
+    "in-source": true
+  },
+  "suffix": ".bs.js",
+  "warnings": {
+    "number": "-45-44",
+    "error": "+101"
+  },
+  "bs-dependencies": ["reason-graphql", "bs-express", "reason-future"],
+  "namespace": false,
+  "refmt": 3
+}
