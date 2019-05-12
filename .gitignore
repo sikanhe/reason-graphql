@@ -2,8 +2,8 @@
 .merlin
 .bsb.lock
 npm-debug.log
-/lib/bs/
-/node_modules/
+lib
+node_modules
 .vscode
 *.bs.js
 .pnp
