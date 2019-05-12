@@ -15,9 +15,9 @@
     "bs-platform": "^5.0.0"
   },
   "dependencies": {
-    "@glennsl/bs-json": "^3.0.0",
     "bs-express": "^0.12.0",
     "reason-future": "^2.4.0",
-    "reason-graphql": ">= 0.1.0"
+    "reason-graphql": ">= 0.1.0",
+    "reason-graphql-bs-express": ">= 0.1.0"
   }
 }

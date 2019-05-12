@@ -16,7 +16,12 @@
     "number": "-45-44",
     "error": "+101"
   },
-  "bs-dependencies": ["reason-graphql", "bs-express", "reason-future"],
+  "bs-dependencies": [
+    "reason-graphql",
+    "bs-express",
+    "reason-future",
+    "reason-graphql-bs-express"
+  ],
   "namespace": false,
   "refmt": 3
 }

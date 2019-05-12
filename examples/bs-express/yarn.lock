@@ -2,11 +2,6 @@
 # yarn lockfile v1
 
 
-"@glennsl/bs-json@^3.0.0":
-  version "3.0.0"
-  resolved "https://registry.yarnpkg.com/@glennsl/bs-json/-/bs-json-3.0.0.tgz#b4e1cf6612270a8dd7287a8a71ebe17e8f0fb683"
-  integrity sha512-slqtGLd/c3yQK9Qfd1gfMB9JCzNU4wzCpVPfO9pXlG64M+te5r30FK++tb3uQEVlVLYtpgZ4wCHtkI8xoshgxQ==
-
 accepts@~1.3.5:
   version "1.3.7"
   resolved "https://registry.yarnpkg.com/accepts/-/accepts-1.3.7.tgz#531bc726517a3b2b41f850021c6cc15eaab507cd"
@@ -318,6 +313,15 @@ reason-future@^2.4.0:
   version "2.4.0"
   resolved "https://registry.yarnpkg.com/reason-future/-/reason-future-2.4.0.tgz#3918945a943a6abbb67bc62e90af6a65a0f079ae"
   integrity sha512-QtWvUqzfPTxZpB4sWjAS3bFqCB76Lsxm6ekd99LF8iXkLqx2Xg+b9wyobW/KoXMrq48B//hvW3Dh3vhIYlpXHQ==
+
+"reason-graphql-bs-express@>= 0.1.0":
+  version "0.1.0"
+  resolved "https://registry.yarnpkg.com/reason-graphql-bs-express/-/reason-graphql-bs-express-0.1.0.tgz#2daad905d1e5f086efc47b9cddd12440e0046d22"
+  integrity sha512-KjOyP/sJHd7Wxt9fFANlZ5imhLYmpZBi9/xE2GYzw3C33Jyn8hVA/yN6vTRI0oSh9ecYusrIWHCuCn33cBdIXQ==
+  dependencies:
+    bs-express "^0.12.0"
+    reason-future "^2.4.0"
+    reason-graphql ">= 0.1.0"
 
 "reason-graphql@>= 0.1.0":
   version "0.3.1"
