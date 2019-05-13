@@ -19,6 +19,7 @@
     "reason-graphql-bs-express"
   ],
   "warnings": {
+    "number": "-44-45",
     "error" : "+101"
   },
   "namespace": true,
