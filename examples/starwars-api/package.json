@@ -1,0 +1,26 @@
+{
+  "name": "starwars-api",
+  "version": "0.1.0",
+  "scripts": {
+    "build": "bsb -make-world",
+    "start": "bsb -make-world -w",
+    "clean": "bsb -clean-world"
+  },
+  "keywords": [
+    "BuckleScript"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "bs-platform": "^5.0.2"
+  },
+  "dependencies": {
+    "@glennsl/bs-json": "^3.0.0",
+    "bs-express": "^0.12.0",
+    "bs-fetch": "^0.3.1",
+    "bs-json": "^1.0.1",
+    "isomorphic-fetch": "^2.2.1",
+    "reason-graphql": "^0.3.2",
+    "reason-graphql-bs-express": "^0.2.0"
+  }
+}

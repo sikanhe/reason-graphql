@@ -1,0 +1,26 @@
+{
+  "name": "starwars-api",
+  "version": "0.1.0",
+  "sources": {
+    "dir" : "src",
+    "subdirs" : true
+  },
+  "package-specs": {
+    "module": "commonjs",
+    "in-source": true
+  },
+  "suffix": ".bs.js",
+  "bs-dependencies": [
+    "bs-express",
+    "bs-fetch",
+    "@glennsl/bs-json",
+    "reason-future",
+    "reason-graphql",
+    "reason-graphql-bs-express"
+  ],
+  "warnings": {
+    "error" : "+101"
+  },
+  "namespace": true,
+  "refmt": 3
+}
