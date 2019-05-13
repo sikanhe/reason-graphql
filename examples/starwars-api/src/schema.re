@@ -311,7 +311,7 @@ let starship =
         ),
         field(
           "passengers",
-          nonnull(list(nonnull(string))),
+          nonnull(string),
           ~args=Arg.[],
           ~resolve=((), starship: Swapi.starship) =>
           starship.passengers
@@ -410,7 +410,7 @@ let vehicle =
         ),
         field(
           "passengers",
-          nonnull(list(nonnull(string))),
+          nonnull(string),
           ~args=Arg.[],
           ~resolve=((), vehicle: Swapi.vehicle) =>
           vehicle.passengers

@@ -50,7 +50,7 @@ type starship = {
   costInCredits: option(float),
   length: float,
   crew: string,
-  passengers: list(string),
+  passengers: string,
   maxAtmospheringSpeed: option(int),
   hyperdriveRating: float,
   mglt: int,
@@ -66,7 +66,7 @@ type vehicle = {
   costInCredits: option(float),
   length: float,
   crew: string,
-  passengers: list(string),
+  passengers: string,
   maxAtmospheringSpeed: option(int),
   cargoCapacity: float,
   consumables: string,
@@ -196,11 +196,7 @@ let decodeStarship = (json: Js.Json.t): starship =>
     costInCredits: json |> field("cost_in_credits", string) |> parseFloat,
     length: json |> field("length", string) |> float_of_string,
     crew: json |> field("crew", string),
-    passengers:
-      json
-      |> field("passengers", string)
-      |> Js.String.split(", ")
-      |> Array.to_list,
+    passengers: json |> field("passengers", string),
     maxAtmospheringSpeed:
       json |> field("max_atmosphering_speed", string) |> parseInt,
     hyperdriveRating:
@@ -225,11 +221,7 @@ let decodeVehicle = (json: Js.Json.t): vehicle =>
     costInCredits: json |> field("cost_in_credits", string) |> parseFloat,
     length: json |> field("length", string) |> float_of_string,
     crew: json |> field("crew", string),
-    passengers:
-      json
-      |> field("passengers", string)
-      |> Js.String.split(", ")
-      |> Array.to_list,
+    passengers: json |> field("passengers", string),
     maxAtmospheringSpeed:
       json |> field("max_atmosphering_speed", string) |> parseInt,
     cargoCapacity: json |> field("cargo_capacity", string) |> float_of_string,
