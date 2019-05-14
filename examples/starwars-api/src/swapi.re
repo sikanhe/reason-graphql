@@ -5,6 +5,7 @@ type film = {
   director: string,
   producers: list(string),
   releaseDate: string,
+  characterUrls: list(string)
 };
 
 type person = {
@@ -13,9 +14,13 @@ type person = {
   eyeColor: string,
   gender: string,
   hairColor: string,
-  height: int,
-  mass: float,
+  height: option(int),
+  mass: option(float),
   skinColor: string,
+  filmUrls: list(string),
+  speciesUrls: list(string),
+  vehicleUrls: list(string),
+  starshipUrls: list(string),
 };
 
 type planet = {
@@ -78,21 +83,27 @@ let baseUrl = "https://swapi.co/api/";
 
 exception RecordNotFound;
 
-let parseFloat =
+let parseFloat = n =>
+  n |> Js.String.replaceByRe([%re "/,/"], "") |> float_of_string;
+let parseFloatOpt =
   fun
   | "n/a"
   | "unknown" => None
-  | n => Some(float_of_string(n));
+  | n => Some(parseFloat(n));
 
-let parseInt =
+let parseInt = n => {
+  (n |> Js.String.replaceByRe([%re "/,/"], ""))->int_of_string;
+};
+
+let parseIntOpt =
   fun
   | "n/a"
   | "unknown" => None
-  | n => Some(int_of_string(n));
+  | n => Some(n |> parseInt);
 
-let getEntity = (path, decoder, id) =>
+let getEntityByUrl = (decoder, url) =>
   Js.Promise.(
-    Fetch.fetch(baseUrl ++ path ++ "/" ++ string_of_int(id))
+    Fetch.fetch(url)
     |> then_(res =>
          Fetch.Response.status(res) == 404
            ? reject(RecordNotFound) : resolve(res)
@@ -101,6 +112,50 @@ let getEntity = (path, decoder, id) =>
     |> then_(json => Some(decoder(json)) |> resolve)
   )
   ->FutureJs.fromPromise(Js.String.make);
+
+let getEntityById = (path, decoder, id) =>
+  getEntityByUrl(decoder, baseUrl ++ path ++ "/" ++ string_of_int(id));
+
+let getAllEntitiesForType = (path, decoder, ()) => {
+  let rec aux = (acc, nextUrl) => {
+    Js.Promise.(
+      Fetch.fetch(nextUrl)
+      |> then_(res =>
+           Fetch.Response.status(res) == 404
+             ? reject(RecordNotFound) : resolve(res)
+         )
+      |> then_(Fetch.Response.json)
+      |> then_(json => {
+           let results =
+             Json.Decode.(json |> field("results", list(decoder)));
+           let nextUrl =
+             Json.Decode.(json |> field("next", optional(string)));
+
+           switch (nextUrl) {
+           | Some(url) => aux(List.concat([acc, results]), url)
+           | None => resolve(List.concat([acc, results]))
+           };
+         })
+    );
+  };
+
+  aux([], baseUrl ++ path)->FutureJs.fromPromise(Js.String.make);
+};
+
+let getEntitiesByUrls = (decoder, urls) => {
+  urls
+  |> List.map(url =>
+       Js.Promise.(
+         Fetch.fetch(url)
+         |> then_(Fetch.Response.json)
+         |> then_(json => decoder(json) |> resolve)
+       )
+     )
+  |> Array.of_list
+  |> Js.Promise.all
+  |> FutureJs.fromPromise(_, Js.String.make)
+  |> Future.mapOk(_, res => Array.to_list(res));
+};
 
 let decodeFilm = (json: Js.Json.t): film =>
   Json.Decode.{
@@ -114,9 +169,11 @@ let decodeFilm = (json: Js.Json.t): film =>
       |> Js.String.split(", ")
       |> Array.to_list,
     releaseDate: json |> field("release_date", string),
+    characterUrls: json |> field("characters", list(string))
   };
 
-let getFilm = getEntity("films", decodeFilm);
+let getFilm = getEntityById("films", decodeFilm);
+let getAllFilms = getAllEntitiesForType("films", decodeFilm);
 
 let decodePerson = (json: Js.Json.t): person =>
   Json.Decode.{
@@ -125,12 +182,17 @@ let decodePerson = (json: Js.Json.t): person =>
     eyeColor: json |> field("eye_color", string),
     gender: json |> field("gender", string),
     hairColor: json |> field("hair_color", string),
-    height: json |> field("height", string) |> int_of_string,
-    mass: json |> field("mass", string) |> float_of_string,
+    height: json |> field("height", string) |> parseIntOpt,
+    mass: json |> field("mass", string) |> parseFloatOpt,
     skinColor: json |> field("skin_color", string),
+    filmUrls: json |> field("films", list(string)),
+    starshipUrls: json |> field("starships", list(string)),
+    vehicleUrls: json |> field("vehicles", list(string)),
+    speciesUrls: json |> field("species", list(string)),
   };
 
-let getPerson = getEntity("people", decodePerson);
+let getPerson = getEntityById("people", decodePerson);
+let getAllPeople = getAllEntitiesForType("people", decodePerson);
 
 let decodePlanet = (json: Js.Json.t): planet =>
   Json.Decode.{
@@ -153,7 +215,7 @@ let decodePlanet = (json: Js.Json.t): planet =>
     surfaceWater: json |> field("surface_water", string) |> float_of_string,
   };
 
-let getPlanet = getEntity("planets", decodePlanet);
+let getPlanet = getEntityById("planets", decodePlanet);
 
 let decodeSpecies = (json: Js.Json.t): species =>
   Json.Decode.{
@@ -181,7 +243,7 @@ let decodeSpecies = (json: Js.Json.t): species =>
     language: json |> field("language", string),
   };
 
-let getSpecies = getEntity("species", decodeSpecies);
+let getSpecies = getEntityById("species", decodeSpecies);
 
 let decodeStarship = (json: Js.Json.t): starship =>
   Json.Decode.{
@@ -193,12 +255,12 @@ let decodeStarship = (json: Js.Json.t): starship =>
       |> field("manufacturer", string)
       |> Js.String.split(", ")
       |> Array.to_list,
-    costInCredits: json |> field("cost_in_credits", string) |> parseFloat,
+    costInCredits: json |> field("cost_in_credits", string) |> parseFloatOpt,
     length: json |> field("length", string) |> float_of_string,
     crew: json |> field("crew", string),
     passengers: json |> field("passengers", string),
     maxAtmospheringSpeed:
-      json |> field("max_atmosphering_speed", string) |> parseInt,
+      json |> field("max_atmosphering_speed", string) |> parseIntOpt,
     hyperdriveRating:
       json |> field("hyperdrive_rating", string) |> float_of_string,
     mglt: json |> field("MGLT", string) |> int_of_string,
@@ -206,7 +268,7 @@ let decodeStarship = (json: Js.Json.t): starship =>
     consumables: json |> field("consumables", string),
   };
 
-let getStarship = getEntity("starships", decodeStarship);
+let getStarship = getEntityById("starships", decodeStarship);
 
 let decodeVehicle = (json: Js.Json.t): vehicle =>
   Json.Decode.{
@@ -218,14 +280,14 @@ let decodeVehicle = (json: Js.Json.t): vehicle =>
       |> field("manufacturer", string)
       |> Js.String.split(", ")
       |> Array.to_list,
-    costInCredits: json |> field("cost_in_credits", string) |> parseFloat,
+    costInCredits: json |> field("cost_in_credits", string) |> parseFloatOpt,
     length: json |> field("length", string) |> float_of_string,
     crew: json |> field("crew", string),
     passengers: json |> field("passengers", string),
     maxAtmospheringSpeed:
-      json |> field("max_atmosphering_speed", string) |> parseInt,
+      json |> field("max_atmosphering_speed", string) |> parseIntOpt,
     cargoCapacity: json |> field("cargo_capacity", string) |> float_of_string,
     consumables: json |> field("consumables", string),
   };
 
-let getVehicle = getEntity("vehicles", decodeVehicle);
+let getVehicle = getEntityById("vehicles", decodeVehicle);
