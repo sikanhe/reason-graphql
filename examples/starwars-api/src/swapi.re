@@ -25,22 +25,22 @@ type person = {
 
 type planet = {
   name: string,
-  diameter: int,
-  rotationPeriod: int,
-  orbitalPeriod: int,
+  diameter: option(int),
+  rotationPeriod: option(int),
+  orbitalPeriod: option(int),
   gravity: string,
-  population: float,
+  population: option(float),
   climates: list(string),
   terrains: list(string),
-  surfaceWater: float,
+  surfaceWater: option(float),
 };
 
 type species = {
   name: string,
   classification: string,
   designation: string,
-  averageHeight: float,
-  averageLifespan: int,
+  averageHeight: option(float),
+  averageLifespan: option(int),
   eyeColors: list(string),
   hairColors: list(string),
   skinColors: list(string),
@@ -53,13 +53,13 @@ type starship = {
   starshipClass: string,
   manufacturers: list(string),
   costInCredits: option(float),
-  length: float,
+  length: option(float),
   crew: string,
   passengers: string,
   maxAtmospheringSpeed: option(int),
-  hyperdriveRating: float,
-  mglt: int,
-  cargoCapacity: float,
+  hyperdriveRating: option(float),
+  mglt: option(int),
+  cargoCapacity: option(float),
   consumables: string,
 };
 
@@ -69,11 +69,11 @@ type vehicle = {
   vehicleClass: string,
   manufacturers: list(string),
   costInCredits: option(float),
-  length: float,
+  length: option(float),
   crew: string,
   passengers: string,
   maxAtmospheringSpeed: option(int),
-  cargoCapacity: float,
+  cargoCapacity: option(float),
   consumables: string,
 };
 
@@ -83,23 +83,31 @@ let baseUrl = "https://swapi.co/api/";
 
 exception RecordNotFound;
 
+let removeGrouping = numberString =>
+  Js.String.replaceByRe([%re "/,/"], "", numberString);
+
 let parseFloat = n =>
-  n |> Js.String.replaceByRe([%re "/,/"], "") |> float_of_string;
+  n |> Js.String.replaceByRe([%re "/,/"], "") |> Js.Float.fromString;
 let parseFloatOpt =
   fun
   | "n/a"
   | "unknown" => None
-  | n => Some(parseFloat(n));
+  | n =>
+    try (Some(n |> parseFloat)) {
+    | Failure(_) => None
+    };
 
 let parseInt = n => {
   (n |> Js.String.replaceByRe([%re "/,/"], ""))->int_of_string;
 };
-
 let parseIntOpt =
   fun
   | "n/a"
   | "unknown" => None
-  | n => Some(n |> parseInt);
+  | n =>
+    try (Some(n |> parseInt)) {
+    | Failure(_) => None
+    };
 
 let rec futureAll =
   Future.(
@@ -208,11 +216,11 @@ let getAllPeople = getAllEntitiesForType("people", decodePerson);
 let decodePlanet = (json: Js.Json.t): planet =>
   Json.Decode.{
     name: json |> field("name", string),
-    diameter: json |> field("diameter", string) |> int_of_string,
-    rotationPeriod: json |> field("rotation_period", string) |> int_of_string,
-    orbitalPeriod: json |> field("orbital_period", string) |> int_of_string,
+    diameter: json |> field("diameter", string) |> parseIntOpt,
+    rotationPeriod: json |> field("rotation_period", string) |> parseIntOpt,
+    orbitalPeriod: json |> field("orbital_period", string) |> parseIntOpt,
     gravity: json |> field("gravity", string),
-    population: json |> field("population", string) |> float_of_string,
+    population: json |> field("population", string) |> parseFloatOpt,
     climates:
       json
       |> field("climate", string)
@@ -223,19 +231,20 @@ let decodePlanet = (json: Js.Json.t): planet =>
       |> field("terrain", string)
       |> Js.String.split(", ")
       |> Array.to_list,
-    surfaceWater: json |> field("surface_water", string) |> float_of_string,
+    surfaceWater: json |> field("surface_water", string) |> parseFloatOpt,
   };
 
 let getPlanet = getEntityById("planets", decodePlanet);
+let getAllPlanets = getAllEntitiesForType("planets", decodePlanet);
 
 let decodeSpecies = (json: Js.Json.t): species =>
   Json.Decode.{
     name: json |> field("name", string),
     classification: json |> field("classification", string),
     designation: json |> field("designation", string),
-    averageHeight: json |> field("average_height", string) |> float_of_string,
+    averageHeight: json |> field("average_height", string) |> parseFloatOpt,
     averageLifespan:
-      json |> field("average_lifespan", string) |> int_of_string,
+      json |> field("average_lifespan", string) |> parseIntOpt,
     eyeColors:
       json
       |> field("eye_colors", string)
@@ -255,6 +264,7 @@ let decodeSpecies = (json: Js.Json.t): species =>
   };
 
 let getSpecies = getEntityById("species", decodeSpecies);
+let getAllSpecies = getAllEntitiesForType("species", decodeSpecies);
 
 let decodeStarship = (json: Js.Json.t): starship =>
   Json.Decode.{
@@ -267,19 +277,20 @@ let decodeStarship = (json: Js.Json.t): starship =>
       |> Js.String.split(", ")
       |> Array.to_list,
     costInCredits: json |> field("cost_in_credits", string) |> parseFloatOpt,
-    length: json |> field("length", string) |> float_of_string,
+    length: json |> field("length", string) |> parseFloatOpt,
     crew: json |> field("crew", string),
     passengers: json |> field("passengers", string),
     maxAtmospheringSpeed:
       json |> field("max_atmosphering_speed", string) |> parseIntOpt,
     hyperdriveRating:
-      json |> field("hyperdrive_rating", string) |> float_of_string,
-    mglt: json |> field("MGLT", string) |> int_of_string,
-    cargoCapacity: json |> field("cargo_capacity", string) |> float_of_string,
+      json |> field("hyperdrive_rating", string) |> parseFloatOpt,
+    mglt: json |> field("MGLT", string) |> parseIntOpt,
+    cargoCapacity: json |> field("cargo_capacity", string) |> parseFloatOpt,
     consumables: json |> field("consumables", string),
   };
 
 let getStarship = getEntityById("starships", decodeStarship);
+let getAllStarships = getAllEntitiesForType("starships", decodeStarship);
 
 let decodeVehicle = (json: Js.Json.t): vehicle =>
   Json.Decode.{
@@ -292,13 +303,14 @@ let decodeVehicle = (json: Js.Json.t): vehicle =>
       |> Js.String.split(", ")
       |> Array.to_list,
     costInCredits: json |> field("cost_in_credits", string) |> parseFloatOpt,
-    length: json |> field("length", string) |> float_of_string,
+    length: json |> field("length", string) |> parseFloatOpt,
     crew: json |> field("crew", string),
     passengers: json |> field("passengers", string),
     maxAtmospheringSpeed:
       json |> field("max_atmosphering_speed", string) |> parseIntOpt,
-    cargoCapacity: json |> field("cargo_capacity", string) |> float_of_string,
+    cargoCapacity: json |> field("cargo_capacity", string) |> parseFloatOpt,
     consumables: json |> field("consumables", string),
   };
 
 let getVehicle = getEntityById("vehicles", decodeVehicle);
+let getAllVehicles = getAllEntitiesForType("vehicles", decodeVehicle);

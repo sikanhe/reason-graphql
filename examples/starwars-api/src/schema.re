@@ -1,6 +1,5 @@
 open GraphqlFuture;
 
-
 let starship =
   Schema.(
     obj("starship", ~fields=_ =>
@@ -42,7 +41,7 @@ let starship =
         ),
         field(
           "length",
-          nonnull(float),
+          float,
           ~args=Arg.[],
           ~resolve=((), starship: Swapi.starship) =>
           starship.length
@@ -70,21 +69,18 @@ let starship =
         ),
         field(
           "hyperdriveRating",
-          nonnull(float),
+          float,
           ~args=Arg.[],
           ~resolve=((), starship: Swapi.starship) =>
           starship.hyperdriveRating
         ),
         field(
-          "mglt",
-          nonnull(int),
-          ~args=Arg.[],
-          ~resolve=((), starship: Swapi.starship) =>
+          "mglt", int, ~args=Arg.[], ~resolve=((), starship: Swapi.starship) =>
           starship.mglt
         ),
         field(
           "cargoCapacity",
-          nonnull(float),
+          float,
           ~args=Arg.[],
           ~resolve=((), starship: Swapi.starship) =>
           starship.cargoCapacity
@@ -243,22 +239,19 @@ let planet =
           planet.name
         ),
         field(
-          "diameter",
-          nonnull(int),
-          ~args=Arg.[],
-          ~resolve=((), planet: Swapi.planet) =>
+          "diameter", int, ~args=Arg.[], ~resolve=((), planet: Swapi.planet) =>
           planet.diameter
         ),
         field(
           "rotationPeriod",
-          nonnull(int),
+          int,
           ~args=Arg.[],
           ~resolve=((), planet: Swapi.planet) =>
           planet.rotationPeriod
         ),
         field(
           "orbitalPeriod",
-          nonnull(int),
+          int,
           ~args=Arg.[],
           ~resolve=((), planet: Swapi.planet) =>
           planet.orbitalPeriod
@@ -272,7 +265,7 @@ let planet =
         ),
         field(
           "population",
-          nonnull(float),
+          float,
           ~args=Arg.[],
           ~resolve=((), planet: Swapi.planet) =>
           planet.population
@@ -293,7 +286,7 @@ let planet =
         ),
         field(
           "surfaceWater",
-          nonnull(float),
+          float,
           ~args=Arg.[],
           ~resolve=((), planet: Swapi.planet) =>
           planet.surfaceWater
@@ -329,14 +322,14 @@ let species =
         ),
         field(
           "averageHeight",
-          nonnull(float),
+          float,
           ~args=Arg.[],
           ~resolve=((), species: Swapi.species) =>
           species.averageHeight
         ),
         field(
           "averageLifespan",
-          nonnull(int),
+          int,
           ~args=Arg.[],
           ~resolve=((), species: Swapi.species) =>
           species.averageLifespan
@@ -413,10 +406,7 @@ let vehicle =
           vehicle.costInCredits
         ),
         field(
-          "length",
-          nonnull(float),
-          ~args=Arg.[],
-          ~resolve=((), vehicle: Swapi.vehicle) =>
+          "length", float, ~args=Arg.[], ~resolve=((), vehicle: Swapi.vehicle) =>
           vehicle.length
         ),
         field(
@@ -442,7 +432,7 @@ let vehicle =
         ),
         field(
           "cargoCapacity",
-          nonnull(float),
+          float,
           ~args=Arg.[],
           ~resolve=((), vehicle: Swapi.vehicle) =>
           vehicle.cargoCapacity
@@ -493,11 +483,25 @@ let rootQuery =
         Swapi.getPerson(id)
       ),
       async_field(
+        "allPlanets",
+        nonnull(list(nonnull(planet))),
+        ~args=Arg.[],
+        ~resolve=((), ()) =>
+        Swapi.getAllPlanets()
+      ),
+      async_field(
         "planet",
         planet,
         ~args=Arg.[arg("id", nonnull(int))],
         ~resolve=((), (), id) =>
         Swapi.getPlanet(id)
+      ),
+      async_field(
+        "allSpecies",
+        nonnull(list(nonnull(species))),
+        ~args=Arg.[],
+        ~resolve=((), ()) =>
+        Swapi.getAllSpecies()
       ),
       async_field(
         "species",
@@ -507,11 +511,25 @@ let rootQuery =
         Swapi.getSpecies(id)
       ),
       async_field(
+        "allStarships",
+        nonnull(list(nonnull(starship))),
+        ~args=Arg.[],
+        ~resolve=((), ()) =>
+        Swapi.getAllStarships()
+      ),
+      async_field(
         "starship",
         starship,
         ~args=Arg.[arg("id", nonnull(int))],
         ~resolve=((), (), id) =>
         Swapi.getStarship(id)
+      ),
+      async_field(
+        "allVehicles",
+        nonnull(list(nonnull(vehicle))),
+        ~args=Arg.[],
+        ~resolve=((), ()) =>
+        Swapi.getAllVehicles()
       ),
       async_field(
         "vehicle",
