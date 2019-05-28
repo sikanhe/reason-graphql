@@ -243,8 +243,7 @@ let decodeSpecies = (json: Js.Json.t): species =>
     classification: json |> field("classification", string),
     designation: json |> field("designation", string),
     averageHeight: json |> field("average_height", string) |> parseFloatOpt,
-    averageLifespan:
-      json |> field("average_lifespan", string) |> parseIntOpt,
+    averageLifespan: json |> field("average_lifespan", string) |> parseIntOpt,
     eyeColors:
       json
       |> field("eye_colors", string)
