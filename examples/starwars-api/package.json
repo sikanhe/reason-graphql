@@ -20,6 +20,7 @@
     "bs-fetch": "^0.3.1",
     "bs-json": "^1.0.1",
     "isomorphic-fetch": "^2.2.1",
+    "reason-dataloader": "^0.1.1",
     "reason-graphql": "^0.3.2",
     "reason-graphql-bs-express": "^0.2.0"
   }

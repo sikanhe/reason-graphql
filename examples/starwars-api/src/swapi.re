@@ -5,7 +5,7 @@ type film = {
   director: string,
   producers: list(string),
   releaseDate: string,
-  characterUrls: list(string)
+  characterUrls: list(string),
 };
 
 type person = {
@@ -101,60 +101,71 @@ let parseIntOpt =
   | "unknown" => None
   | n => Some(n |> parseInt);
 
-let getEntityByUrl = (decoder, url) =>
-  Js.Promise.(
-    Fetch.fetch(url)
-    |> then_(res =>
-         Fetch.Response.status(res) == 404
-           ? reject(RecordNotFound) : resolve(res)
+let rec futureAll =
+  Future.(
+    fun
+    | [] => value([])
+    | [future, ...rest] =>
+      flatMap(future, value => map(futureAll(rest), acc => [value, ...acc]))
+  );
+
+let urlDataloader =
+  Dataloader.make(urls =>
+    urls
+    |> List.map(url =>
+         Js.Promise.(
+           Fetch.fetch(url)
+           |> then_(res =>
+                Fetch.Response.status(res) == 404
+                  ? reject(RecordNotFound) : resolve(res)
+              )
+           |> then_(Fetch.Response.json)
+           |> FutureJs.fromPromise(_, Js.String.make)
+         )
        )
-    |> then_(Fetch.Response.json)
-    |> then_(json => Some(decoder(json)) |> resolve)
-  )
-  ->FutureJs.fromPromise(Js.String.make);
+    |> futureAll
+  );
+
+let getEntityByUrl = (decoder, url) =>
+  Future.map(
+    urlDataloader.load(url),
+    fun
+    | Ok(thing) => Belt.Result.Ok(Some(decoder(thing)))
+    | Error(_) => Ok(None),
+  );
 
 let getEntityById = (path, decoder, id) =>
   getEntityByUrl(decoder, baseUrl ++ path ++ "/" ++ string_of_int(id));
 
 let getAllEntitiesForType = (path, decoder, ()) => {
   let rec aux = (acc, nextUrl) => {
-    Js.Promise.(
-      Fetch.fetch(nextUrl)
-      |> then_(res =>
-           Fetch.Response.status(res) == 404
-             ? reject(RecordNotFound) : resolve(res)
-         )
-      |> then_(Fetch.Response.json)
-      |> then_(json => {
-           let results =
-             Json.Decode.(json |> field("results", list(decoder)));
-           let nextUrl =
-             Json.Decode.(json |> field("next", optional(string)));
+    urlDataloader.load(nextUrl)
+    ->Future.flatMapOk(json => {
+        let results = Json.Decode.(json |> field("results", list(decoder)));
+        let nextUrl = Json.Decode.(json |> field("next", optional(string)));
 
-           switch (nextUrl) {
-           | Some(url) => aux(List.concat([acc, results]), url)
-           | None => resolve(List.concat([acc, results]))
-           };
-         })
-    );
+        switch (nextUrl) {
+        | Some(url) => aux(List.concat([acc, results]), url)
+        | None => Future.value(Belt.Result.Ok(List.concat([acc, results])))
+        };
+      });
   };
 
-  aux([], baseUrl ++ path)->FutureJs.fromPromise(Js.String.make);
+  aux([], baseUrl ++ path);
 };
 
 let getEntitiesByUrls = (decoder, urls) => {
-  urls
-  |> List.map(url =>
-       Js.Promise.(
-         Fetch.fetch(url)
-         |> then_(Fetch.Response.json)
-         |> then_(json => decoder(json) |> resolve)
-       )
-     )
-  |> Array.of_list
-  |> Js.Promise.all
-  |> FutureJs.fromPromise(_, Js.String.make)
-  |> Future.mapOk(_, res => Array.to_list(res));
+  urlDataloader.loadMany(urls)
+  ->Future.map(
+      List.fold_left(
+        acc =>
+          fun
+          | Belt.Result.Ok(result) => [decoder(result), ...acc]
+          | Error(_) => acc,
+        [],
+      ),
+    )
+  ->Future.map(list => Belt.Result.Ok(list));
 };
 
 let decodeFilm = (json: Js.Json.t): film =>
@@ -169,7 +180,7 @@ let decodeFilm = (json: Js.Json.t): film =>
       |> Js.String.split(", ")
       |> Array.to_list,
     releaseDate: json |> field("release_date", string),
-    characterUrls: json |> field("characters", list(string))
+    characterUrls: json |> field("characters", list(string)),
   };
 
 let getFilm = getEntityById("films", decodeFilm);

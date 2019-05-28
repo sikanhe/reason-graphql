@@ -16,7 +16,8 @@
     "@glennsl/bs-json",
     "reason-future",
     "reason-graphql",
-    "reason-graphql-bs-express"
+    "reason-graphql-bs-express",
+    "reason-dataloader"
   ],
   "warnings": {
     "number": "-44-45",
