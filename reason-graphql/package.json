@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "let-anything": "^1.0.3",
-    "reason-future": "^2.4.0"
+    "reason-future": "^2.4.0",
+    "wonka": "^3.0.0"
   }
 }

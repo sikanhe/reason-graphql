@@ -58,6 +58,43 @@ module Make = (Io: IO) => {
       | [] => return([])
       | [x, ...xs] => bind(all(xs), xs' => map(x, x' => [x', ...xs']));
 
+    module Stream = {
+      // open Wonka;
+      // type t('a) = Wonka.Types.sourceT('a);
+      type t('a) = Stream.t('a);
+      type io(+'a) = Io.t('a);
+
+      // type t('a) = Wonka.Wonka.fromValue;
+      // let toFuture = () => {
+      //   let a = Wonka.fromList([1, 2]);
+
+      //   let huh = Wonka.subscribe((. b) => Js.log(b), a);
+      //   ();
+      // };
+
+      let map: (t('a), 'a => io('b)) => t('b) =
+        (stream, fn) => {
+          let a =
+            Stream.from(count =>
+              switch (Stream.next(stream)) {
+              | value => Some(fn(value))
+              | exception _ => None
+              }
+            );
+          // Stream.la
+          // Stream.
+          a;
+          Obj.magic();
+        };
+
+      let iter: (t('a), 'a => io(unit)) => io(unit) =
+        (stream, fn) => {
+          // Stream.iter(a => {
+          // }, stream);
+          Obj.magic();
+        };
+    };
+
     module Result = {
       let bind = (x, f) =>
         bind(
@@ -251,6 +288,24 @@ module Make = (Io: IO) => {
 
   type abstractType('ctx, 'a) = typ('ctx, option(abstractValue('ctx, 'a)));
 
+  type subscriptionFieldDef('ctx, 'args, 'out) = {
+    name: string,
+    description: option(string),
+    deprecated: deprecation,
+    typ: typ('ctx, 'out),
+    args: Arg.arglist(Io.t(Result.t(Io.Stream.t('out), string)), 'args),
+    resolve: 'ctx => 'args,
+  };
+
+  type subscriptionField('ctx) =
+    | SubscriptionField(subscriptionFieldDef('ctx, 'args, 'out)): subscriptionField('ctx);
+
+  type subscriptionObj('ctx) = {
+    name: string,
+    description: option(string),
+    fields: list(subscriptionField('ctx)),
+  };
+
   type directiveLocation = [
     | `Query
     | `Mutation
@@ -306,6 +361,7 @@ module Make = (Io: IO) => {
   type schema('ctx) = {
     query: obj('ctx, unit),
     mutation: option(obj('ctx, unit)),
+    subscription: option(subscriptionObj('ctx)),
   };
 
   type combinedEnum('ctx, 'a) = {
@@ -373,7 +429,7 @@ module Make = (Io: IO) => {
     abstracts: ref([]),
   };
 
-  let create = (~mutation=?, query) => {query, mutation};
+  let create = (~mutation=?, ~subscription=?, query) => {query, mutation, subscription};
 
   /* Built in scalars */
   let string: 'ctx. typ('ctx, option(string)) =
@@ -403,6 +459,24 @@ module Make = (Io: IO) => {
       } else {
         f((result, visited));
       };
+
+    let subscriptionObjToObj = ({name, description, fields}) => {
+      let fields =
+        List.map(
+          fields, (SubscriptionField({name, description, deprecated, typ, args, resolve})) =>
+          Field({
+            lift: Obj.magic(),
+            name,
+            description,
+            deprecated,
+            typ,
+            args,
+            resolve: (ctx, ()) => resolve(ctx),
+          })
+        );
+
+      {name, description, abstracts: ref([]), fields: lazy fields};
+    };
 
     /* Extracts all types contained in a single type */
 
@@ -636,7 +710,7 @@ module Make = (Io: IO) => {
               deprecated: NotDeprecated,
               description: None,
               lift: Io.ok,
-              resolve: (_, AnyArg(_)) => None
+              resolve: (_, AnyArg(_)) => None,
             }),
           ],
       })
@@ -1003,7 +1077,7 @@ module Make = (Io: IO) => {
                     [
                       Some(s.query),
                       s.mutation,
-                      // Option.map(s.subscription, ~f=obj_of_subscription_obj),
+                      Option.map(s.subscription, subscriptionObjToObj),
                     ],
                     ([], StringSet.empty),
                     (memo, op) =>
@@ -1033,18 +1107,16 @@ module Make = (Io: IO) => {
               lift: Io.ok,
               resolve: (_, s) => Option.map(s.mutation, mut => AnyTyp(Object(mut))),
             }),
-            // Field({
-            //   name: "subscriptionType",
-            //   description: None,
-            //   deprecated: NotDeprecated,
-            //   typ: NonNull(__type),
-            //   args: Arg.[],
-            //   lift: Io.ok,
-            //   resolve: (_, s) =>
-            //     Option.map(s.subscription, subs =>
-            //       AnyTyp(Object(obj_of_subscription_obj(subs)))
-            //     ),
-            // }),
+            Field({
+              name: "subscriptionType",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: __type,
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, s) =>
+                Option.map(s.subscription, subs => AnyTyp(Object(subscriptionObjToObj(subs)))),
+            }),
             Field({
               name: "directives",
               description: None,
@@ -1395,6 +1467,9 @@ module Make = (Io: IO) => {
   let getObjField = (fieldName: string, obj: obj('ctx, 'src)): option(field('ctx, 'src)) =>
     obj.fields |> Lazy.force |> Belt.List.getBy(_, (Field(field)) => field.name == fieldName);
 
+  let getSubscriptionObjField = (obj, fieldName) =>
+    List.getBy(obj.fields, (SubscriptionField(field)) => field.name == fieldName);
+
   let coerceOrNull = (src, f) =>
     switch (src) {
     | Some(src') => f(src')
@@ -1505,9 +1580,110 @@ module Make = (Io: IO) => {
       ->Io.Result.map(assocList => `Map(assocList));
     };
 
+  let okResponse = data => {
+    `Map([("data", data)]);
+  };
+
+  let errorResponse = (~path=?, msg): Ast.constValue => {
+    let path' =
+      switch (path) {
+      | Some(path) => path
+      | None => []
+      };
+    `Map([
+      ("data", `Null),
+      (
+        "errors",
+        `List([
+          `Map([
+            ("message", `String(msg)),
+            ("path", `List(List.map(path', s => `String(s)))),
+          ]),
+        ]),
+      ),
+    ]);
+  };
+
+  let toResponse =
+    fun
+    | Ok(_) as res => res
+    | Error(`NoOperationFound) => Error(errorResponse("No operation found"))
+    | Error(`OperationNotFound) => Error(errorResponse("Operation not found"))
+    | Error(`OperationNameRequired) => Error(errorResponse("Operation name required"))
+    | Error(`SubscriptionsNotConfigured) => Error(errorResponse("Subscriptions not configured"))
+    | Error(`MutationsNotConfigured) => Error(errorResponse("Mutations not configured"))
+    | Error(`ValidationError(msg)) => Error(errorResponse(msg))
+    | Error(`ArgumentError(msg)) => Error(errorResponse(msg))
+    | Error(`ResolveError(msg, path)) => Error(errorResponse(msg, ~path));
+
+  let subscribe:
+    type ctx.
+      (executionContext(ctx), subscriptionField(ctx), Ast.field) =>
+      Io.t(Result.t(Io.Stream.t(Result.t(Ast.constValue, Ast.constValue)), [> resolveError])) =
+    (ctx, SubscriptionField(subs_field), field) => {
+      let name = fieldName(field);
+      // let path = [`String(name)];
+      // let resolve_info = {
+      //   ctx: ctx.ctx,
+      //   field,
+      //   fragmentMap: ctx.fragments,
+      //   variableMap: ctx.variables,
+      // };
+      let resolver = subs_field.resolve(ctx.ctx);
+      switch (
+        ArgEval.evalArgList(
+          ctx.variableMap,
+          ~fieldName=subs_field.name,
+          subs_field.args,
+          field.arguments,
+          resolver,
+        )
+      ) {
+      | Ok(result) =>
+        result
+        ->Io.Result.map(stream =>
+            Io.Stream.map(stream, value =>
+              resolveValue(ctx, value, field, subs_field.typ)
+              ->Io.Result.map(data => `Map([(name, data)]))
+              ->Io.map(toResponse)
+            )
+          )
+        ->Io.Result.mapError(err => `ResolveError((err, [])))
+      | Error(err) => Io.error(`ArgumentError(err))
+      };
+    };
+
+  let obj_of_subscription_obj = ({name, description, fields}) => {
+    let fields =
+      List.map(fields, (SubscriptionField({name, description, deprecated, typ, args, resolve})) =>
+        Field({
+          lift: Obj.magic(),
+          name,
+          description,
+          deprecated,
+          typ,
+          args,
+          resolve: (ctx, ()) => resolve(ctx),
+        })
+      );
+
+    {name, description, abstracts: ref([]), fields: lazy fields};
+  };
+
+  let field_from_subscription_object = (obj, field_name) =>
+    List.getBy(obj.fields, (SubscriptionField(field)) => field.name == field_name);
+
   let executeOperation =
       (executionContext: executionContext('ctx), operation: Ast.operationDefinition)
-      : Io.t(Result.t(Ast.constValue, [> executeError])) =>
+      : Io.t(
+          Result.t(
+            [
+              | `Stream(Io.Stream.t(Result.t(Ast.constValue, Ast.constValue)))
+              | `Response(Ast.constValue)
+            ],
+            [> executeError],
+          ),
+        ) =>
     switch (operation.operationType) {
     | Query =>
       let%Io.Result fields =
@@ -1520,7 +1696,9 @@ module Make = (Io: IO) => {
         resolveFields(executionContext, (), executionContext.schema.query, fields):
           Io.t(Result.t(Ast.constValue, resolveError)) :>
           Io.t(Result.t(Ast.constValue, [> executeError]))
-      );
+      )
+      ->Io.Result.map(t => `Response(t));
+
     | Mutation =>
       switch (executionContext.schema.mutation) {
       | Some(mutation) =>
@@ -1532,10 +1710,38 @@ module Make = (Io: IO) => {
           resolveFields(executionContext, (), mutation, fields):
             Io.t(Result.t(Ast.constValue, resolveError)) :>
             Io.t(Result.t(Ast.constValue, [> executeError]))
-        );
+        )
+        ->Io.Result.map(t => `Response(t));
       | None => Io.error(`MutationsNotConfigured)
       }
-    | _ => failwith("Subscription Not implemented")
+    | Subscription =>
+      switch (executionContext.schema.subscription) {
+      | None => Io.error(`SubscriptionsNotConfigured)
+      | Some(subs) =>
+        let%Io.Result fields =
+          Io.return(
+            collectFields(
+              executionContext,
+              obj_of_subscription_obj(subs),
+              operation.selectionSet,
+            ),
+          )
+          ->Io.Result.mapError(e => `ArgumentError(e));
+
+        switch (fields) {
+        | [field] =>
+          switch (field_from_subscription_object(subs, field.name)) {
+          | Some(subscriptionField) =>
+            subscribe(executionContext, subscriptionField, field)
+            ->Io.Result.map(stream => `Stream(stream))
+          | None => Io.ok(`Response(`Map([(fieldName(field), `Null)])))
+          }
+        | _ =>
+          Io.error(
+            `ValidationError("Subscriptions only allow exactly one selection for the operation."),
+          )
+        };
+      }
     };
 
   let collectOperations = (document: Ast.document) =>
@@ -1600,30 +1806,6 @@ module Make = (Io: IO) => {
     validateFragments(fragments);
   };
 
-  let okResponse = data => {
-    `Map([("data", data)]);
-  };
-
-  let errorResponse = (~path=?, msg): Ast.constValue => {
-    let path' =
-      switch (path) {
-      | Some(path) => path
-      | None => []
-      };
-    `Map([
-      ("data", `Null),
-      (
-        "errors",
-        `List([
-          `Map([
-            ("message", `String(msg)),
-            ("path", `List(List.map(path', s => `String(s)))),
-          ]),
-        ]),
-      ),
-    ]);
-  };
-
   let execute =
       (~variables: variableList=[], ~document: Ast.document, schema: schema('ctx), ~ctx: 'ctx) => {
     let execute' = (schema, ctx, document) => {
@@ -1647,19 +1829,8 @@ module Make = (Io: IO) => {
       ->Belt.List.headExn;
     };
 
-    execute'(schema, ctx, document)
-    ->Io.map(
-        fun
-        | Ok(res) => okResponse(res)
-        | Error(`NoOperationFound) => errorResponse("No operation found")
-        | Error(`OperationNotFound) => errorResponse("Operation not found")
-        | Error(`OperationNameRequired) => errorResponse("Operation name required")
-        | Error(`SubscriptionsNotConfigured) => errorResponse("Subscriptions not configured")
-        | Error(`MutationsNotConfigured) => errorResponse("Mutations not configured")
-        | Error(`ValidationError(msg)) => errorResponse(msg)
-        | Error(`ArgumentError(msg)) => errorResponse(msg)
-        | Error(`ResolveError(msg, path)) => errorResponse(msg, ~path),
-      );
+    let res = execute'(schema, ctx, document);
+    res->Io.map(a => toResponse(a));
   };
 
   let resultToJson: Io.t(Ast.constValue) => Io.t(Js.Json.t) =
