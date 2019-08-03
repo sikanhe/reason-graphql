@@ -39,6 +39,17 @@ module type IO = {
   type t(+'a);
   let return: 'a => t('a);
   let bind: (t('a), 'a => t('b)) => t('b);
+
+  module Stream:
+     {
+      type io(+'a);
+      type t('a);
+
+      let map: (t('a), 'a => io('b)) => t('b);
+      let iter: (t('a), 'a => io(unit)) => io(unit);
+      let close: t('a) => unit;
+    } with
+      type io('a) := t('a);
 };
 
 let id: 'a. 'a => 'a = x => x;
@@ -57,43 +68,6 @@ module Make = (Io: IO) => {
       fun
       | [] => return([])
       | [x, ...xs] => bind(all(xs), xs' => map(x, x' => [x', ...xs']));
-
-    module Stream = {
-      // open Wonka;
-      // type t('a) = Wonka.Types.sourceT('a);
-      type t('a) = Stream.t('a);
-      type io(+'a) = Io.t('a);
-
-      // type t('a) = Wonka.Wonka.fromValue;
-      // let toFuture = () => {
-      //   let a = Wonka.fromList([1, 2]);
-
-      //   let huh = Wonka.subscribe((. b) => Js.log(b), a);
-      //   ();
-      // };
-
-      let map: (t('a), 'a => io('b)) => t('b) =
-        (stream, fn) => {
-          let a =
-            Stream.from(count =>
-              switch (Stream.next(stream)) {
-              | value => Some(fn(value))
-              | exception _ => None
-              }
-            );
-          // Stream.la
-          // Stream.
-          a;
-          Obj.magic();
-        };
-
-      let iter: (t('a), 'a => io(unit)) => io(unit) =
-        (stream, fn) => {
-          // Stream.iter(a => {
-          // }, stream);
-          Obj.magic();
-        };
-    };
 
     module Result = {
       let bind = (x, f) =>
@@ -1580,9 +1554,23 @@ module Make = (Io: IO) => {
       ->Io.Result.map(assocList => `Map(assocList));
     };
 
-  let okResponse = data => {
-    `Map([("data", data)]);
+  let errorToConstValue = (~path=?, msg) => {
+    let props =
+      switch (path) {
+      | Some(path) => [("path", `List((List.reverse(path) :> list(Ast.constValue))))]
+      | None => []
+      };
+
+    (`Map([("message", `String(msg)), ...props]): Ast.constValue);
   };
+
+  let dataToConstValue =
+    fun
+    | (data: Graphql_Language.Ast.constValue, []) => `Map([("data", data)])
+    | (data, errors) => {
+        let errors = List.map(errors, ((msg, path)) => errorToConstValue(~path, msg));
+        `Map([("errors", `List(errors)), ("data", data)]);
+      };
 
   let errorResponse = (~path=?, msg): Ast.constValue => {
     let path' =
@@ -1653,7 +1641,7 @@ module Make = (Io: IO) => {
       };
     };
 
-  let obj_of_subscription_obj = ({name, description, fields}) => {
+  let objOfSubscriptionObj = ({name, description, fields}) => {
     let fields =
       List.map(fields, (SubscriptionField({name, description, deprecated, typ, args, resolve})) =>
         Field({
@@ -1697,7 +1685,7 @@ module Make = (Io: IO) => {
           Io.t(Result.t(Ast.constValue, resolveError)) :>
           Io.t(Result.t(Ast.constValue, [> executeError]))
       )
-      ->Io.Result.map(t => `Response(t));
+      ->Io.Result.map(t => `Response(dataToConstValue((t, []))));
 
     | Mutation =>
       switch (executionContext.schema.mutation) {
@@ -1711,7 +1699,7 @@ module Make = (Io: IO) => {
             Io.t(Result.t(Ast.constValue, resolveError)) :>
             Io.t(Result.t(Ast.constValue, [> executeError]))
         )
-        ->Io.Result.map(t => `Response(t));
+        ->Io.Result.map(t => `Response(dataToConstValue((t, []))));
       | None => Io.error(`MutationsNotConfigured)
       }
     | Subscription =>
@@ -1720,11 +1708,7 @@ module Make = (Io: IO) => {
       | Some(subs) =>
         let%Io.Result fields =
           Io.return(
-            collectFields(
-              executionContext,
-              obj_of_subscription_obj(subs),
-              operation.selectionSet,
-            ),
+            collectFields(executionContext, objOfSubscriptionObj(subs), operation.selectionSet),
           )
           ->Io.Result.mapError(e => `ArgumentError(e));
 

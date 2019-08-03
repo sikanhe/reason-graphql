@@ -350,3 +350,5 @@ let parse = (body: string) => {
   let lexer = Lexer.make(body);
   parseDocument(lexer);
 };
+
+let parseExn = body => parse(body)->Belt.Result.getExn;

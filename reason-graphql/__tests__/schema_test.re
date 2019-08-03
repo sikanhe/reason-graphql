@@ -5,6 +5,22 @@ open GraphqlFuture;
 
 let schema = StarWarsSchema.schema;
 
+let okResponse = data => Schema.dataToConstValue((data, []));
+
+let expectResponse = (~variables=[], query, expected, assertion) => {
+  Schema.execute(schema, ~document=Parser.parseExn(query), ~variables, ~ctx=())
+  ->Schema.Io.Result.map(
+      fun
+      | `Response(response) => {
+          let actual = Graphql_Json.fromConstValue(response);
+          let expected = Graphql_Json.fromConstValue(expected);
+          assertion(expect(actual) |> toEqual(expected));
+        }
+      | `Stream(_) => failwith("Unexpected stream response"),
+    )
+  ->ignore;
+};
+
 describe("Basic Queries", () => {
   testAsync("Correctly identifies R2-D2 as the hero of the Star Wars Saga", assertion => {
     let query = {|
@@ -15,15 +31,9 @@ describe("Basic Queries", () => {
       }
     |};
 
-    let expected =
-      Schema.okResponse(`Map([("hero", `Map([("name", `String("R2-D2"))]))]))
-      |> Graphql_Json.fromConstValue;
+    let expected = okResponse(`Map([("hero", `Map([("name", `String("R2-D2"))]))]));
 
-    schema
-    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
-    ->Schema.resultToJson
-    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
-    ->ignore;
+    expectResponse(query, expected, assertion);
   });
 
   testAsync("Allows us to query for the ID and friends of R2-D2", assertion => {
@@ -40,7 +50,7 @@ describe("Basic Queries", () => {
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Map([
           (
             "hero",
@@ -58,14 +68,9 @@ describe("Basic Queries", () => {
             ]),
           ),
         ]),
-      )
-      |> Graphql_Json.fromConstValue;
+      );
 
-    schema
-    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
-    ->Schema.resultToJson
-    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
-    ->ignore;
+    expectResponse(query, expected, assertion);
   });
 });
 
@@ -87,7 +92,7 @@ describe("Nested Queries", () =>
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Map([
           (
             "hero",
@@ -148,20 +153,13 @@ describe("Nested Queries", () =>
             ]),
           ),
         ]),
-      )
-      |> Graphql_Json.fromConstValue;
+      );
 
-    schema
-    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
-    ->Schema.resultToJson
-    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
-    ->ignore;
+    expectResponse(query, expected, assertion);
   })
 );
 
 describe("Mutation operation", () => {
-  open Expect;
-
   let mutation = {|
     mutation MyMutation($id: Int!, $name: String!){
       updateCharacterName(characterId: $id, name: $name) {
@@ -180,19 +178,9 @@ describe("Mutation operation", () => {
     ->Graphql_Json.toVariables
     ->Belt.Result.getExn;
 
-  let result =
-    schema
-    |> Schema.execute(
-         _,
-         ~document=Parser.parse(mutation)->Belt.Result.getExn,
-         ~ctx=(),
-         ~variables,
-       )
-    |> Schema.resultToJson;
-
   testAsync("returns the right data", assertion => {
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Map([
           (
             "updateCharacterName",
@@ -205,16 +193,13 @@ describe("Mutation operation", () => {
             ]),
           ),
         ]),
-      )
-      |> Graphql_Json.fromConstValue;
+      );
 
-    Schema.Io.map(result, res => assertion(expect(res) |> toEqual(expected)))->ignore;
+    expectResponse(mutation, expected, assertion, ~variables);
   });
 });
 
 describe("Using aliases to change the key in the response", () => {
-  open Expect;
-
   testAsync("Allows us to query for Luke, changing his key with an alias", assertion => {
     let query = {|
       query FetchLukeAliased {
@@ -224,15 +209,9 @@ describe("Using aliases to change the key in the response", () => {
       }
     |};
 
-    let expected =
-      Schema.okResponse(`Map([("luke", `Map([("name", `String("Luke Skywalker"))]))]))
-      |> Graphql_Json.fromConstValue;
+    let expected = okResponse(`Map([("luke", `Map([("name", `String("Luke Skywalker"))]))]));
 
-    schema
-    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
-    ->Schema.resultToJson
-    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
-    ->ignore;
+    expectResponse(query, expected, assertion);
   });
 
   testAsync(
@@ -249,25 +228,18 @@ describe("Using aliases to change the key in the response", () => {
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Map([
           ("luke", `Map([("name", `String("Luke Skywalker"))])),
           ("leia", `Map([("name", `String("Leia Organa"))])),
         ]),
-      )
-      |> Graphql_Json.fromConstValue;
+      );
 
-    schema
-    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
-    ->Schema.resultToJson
-    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
-    ->ignore;
+    expectResponse(query, expected, assertion);
   });
 });
 
 describe("Uses fragments to express more complex queries", () => {
-  open Expect;
-
   testAsync("Allows us to query using duplicated content", assertion => {
     let query = {|
       query DuplicateFields {
@@ -283,7 +255,7 @@ describe("Uses fragments to express more complex queries", () => {
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Map([
           (
             "luke",
@@ -294,14 +266,9 @@ describe("Uses fragments to express more complex queries", () => {
             `Map([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
           ),
         ]),
-      )
-      |> Graphql_Json.fromConstValue;
+      );
 
-    schema
-    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
-    ->Schema.resultToJson
-    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
-    ->ignore;
+    expectResponse(query, expected, assertion);
   });
 
   testAsync("Allows us to use a fragment to avoid duplicating content", assertion => {
@@ -321,10 +288,8 @@ describe("Uses fragments to express more complex queries", () => {
     }
   |};
 
-    let schema = StarWarsSchema.schema;
-
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Map([
           (
             "luke",
@@ -335,13 +300,8 @@ describe("Uses fragments to express more complex queries", () => {
             `Map([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
           ),
         ]),
-      )
-      |> Graphql_Json.fromConstValue;
+      );
 
-    schema
-    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
-    ->Schema.resultToJson
-    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
-    ->ignore;
+    expectResponse(query, expected, assertion);
   });
 });
