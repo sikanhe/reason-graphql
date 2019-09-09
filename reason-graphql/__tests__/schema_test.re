@@ -1,7 +1,7 @@
 open Jest;
 open Expect;
 open Graphql.Language;
-open GraphqlFuture;
+open GraphqlPromise;
 
 let schema = StarWarsSchema.schema;
 
