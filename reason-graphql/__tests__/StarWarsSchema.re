@@ -1,5 +1,5 @@
 open Belt.Result;
-open GraphqlFuture;
+open GraphqlPromise;
 
 module StarWars = StarWarsData;
 
@@ -57,9 +57,10 @@ and humanTypeLazy =
             nonnull(list(nonnull(characterInterface))),
             ~args=[],
             ~resolve=(_ctx, human: StarWars.human) =>
-            StarWars.getFriends(human.friends)
-            ->Future.map(list => Belt.List.map(list, asCharacterInterface))
-            ->Future.map(list => Ok(list))
+            Js.Promise.(
+              StarWars.getFriends(human.friends)
+              |> then_(list => resolve(Ok(Belt.List.map(list, asCharacterInterface))))
+            )
           ),
           field("homePlanet", string, ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
             human.homePlanet
@@ -93,9 +94,11 @@ and droidTypeLazy =
             nonnull(list(nonnull(characterInterface))),
             ~args=[],
             ~resolve=(_ctx, droid: StarWars.droid) =>
-            StarWars.getFriends(droid.friends)
-            ->Future.map(list => Belt.List.map(list, asCharacterInterface))
-            ->Future.map(list => Ok(list))
+            Js.Promise.(
+              StarWars.getFriends(droid.friends)
+              |> then_(list => resolve(Belt.List.map(list, asCharacterInterface)))
+              |> then_(list => resolve(Ok(list)))
+            )
           ),
         ]
       )
@@ -134,7 +137,7 @@ let query =
         ~args=Arg.[arg("id", nonnull(int))],
         ~resolve=(_ctx, (), argId) => {
           let id = argId;
-          StarWarsData.getHuman(id)->Future.map(human => Ok(human));
+          StarWarsData.getHuman(id) |> Js.Promise.(then_(human => resolve(Ok(human))));
         },
       ),
       async_field(
@@ -143,7 +146,7 @@ let query =
         ~args=Arg.[arg("id", nonnull(int))],
         ~resolve=(_ctx, (), argId) => {
           let id = argId;
-          StarWarsData.getDroid(id)->Future.map(droid => Ok(droid));
+          StarWarsData.getDroid(id) |> Js.Promise.(then_(human => resolve(Ok(human))));
         },
       ),
     ])
@@ -186,7 +189,8 @@ let mutation =
         nonnull(updateCharacterResponse),
         ~args=Arg.[arg("characterId", nonnull(int)), arg("name", nonnull(string))],
         ~resolve=(_ctx, (), charId, name) =>
-        StarWarsData.updateCharacterName(charId, name)->Future.flatMap(Future.ok)
+        StarWarsData.updateCharacterName(charId, name)
+        |> Js.Promise.(then_(x => resolve(Ok(x))))
       ),
     ])
   );

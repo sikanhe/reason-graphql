@@ -72,36 +72,37 @@ let artoo = {
 };
 
 let getHuman = id =>
-  Future.value(Belt.List.getBy([luke, han, leia, vader], human => human.id == id));
-let getDroid = id => Future.value(Belt.List.getBy([threepio, artoo], droid => droid.id == id));
+  Js.Promise.resolve(Belt.List.getBy([luke, han, leia, vader], human => human.id == id));
+let getDroid = id => Js.Promise.resolve(Belt.List.getBy([threepio, artoo], droid => droid.id == id));
 let getCharacter = id => {
   getHuman(id)
-  ->Future.flatMap(
+  |> Js.Promise.(then_(
       fun
-      | Some(human) => Future.value(Some(Human(human)))
+      | Some(human) => resolve(Some(Human(human)))
       | None => {
           getDroid(id)
-          ->Future.map(
+          |> then_(
               fun
-              | Some(droid) => Some(Droid(droid))
-              | None => None,
+              | Some(droid) => resolve(Some(Droid(droid)))
+              | None => resolve(None),
             );
         },
-    );
+    ));
 };
+
 type updateCharacterNameError =
   | CharacterNotFound(int);
 
 type updateCharacterResult = Belt.Result.t(character, updateCharacterNameError);
 
-let updateCharacterName = (id, name): Future.t(updateCharacterResult) => {
+let updateCharacterName = (id, name): Js.Promise.t(updateCharacterResult) => {
   getCharacter(id)
-  ->Future.map(
+  |> Js.Promise.(then_(
       fun
-      | Some(Human(human)) => Belt.Result.Ok(Human({...human, name}))
-      | Some(Droid(droid)) => Belt.Result.Ok(Droid({...droid, name}))
-      | None => Belt.Result.Error(CharacterNotFound(id)),
-    );
+      | Some(Human(human)) => resolve(Belt.Result.Ok(Human({...human, name})))
+      | Some(Droid(droid)) => resolve(Belt.Result.Ok(Droid({...droid, name})))
+      | None => resolve(Belt.Result.Error(CharacterNotFound(id))),
+    ));
 };
 
 let rec futureAll = fun 
@@ -110,7 +111,9 @@ let rec futureAll = fun
 
 let getFriends = ids => {
   Belt.List.map(ids, id => {
-    id -> getCharacter -> Future.map(Belt.Option.getExn)
+    id |> getCharacter |> Js.Promise.(then_(x => resolve(Belt.Option.getExn(x))))
   })
-  |> futureAll
+  |> Array.of_list
+  |> Js.Promise.all
+  |> Js.Promise.(then_(all => resolve(Array.to_list(all))))
 };

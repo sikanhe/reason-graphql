@@ -139,10 +139,10 @@
     exec-sh "^0.3.2"
     minimist "^1.2.0"
 
-"@glennsl/bs-jest@^0.4.8":
-  version "0.4.8"
-  resolved "https://registry.yarnpkg.com/@glennsl/bs-jest/-/bs-jest-0.4.8.tgz#e756ae5b43edc1cdcb4b5592021e50984566dafb"
-  integrity sha512-RU5Bl6Sc9Xdd/BMQUHjEK4qqd3pRfoqzCnU3ncZbNWGndJUHVpuZVbk6IGTqcXSpoaN6eIOppPvLxQP/5yxwKw==
+"@glennsl/bs-jest@^0.4.9":
+  version "0.4.9"
+  resolved "https://registry.yarnpkg.com/@glennsl/bs-jest/-/bs-jest-0.4.9.tgz#a23af2668dda05947ce9c043fd5a7b295e91cef7"
+  integrity sha512-WAqXMcI6WL7JVvGdakBr1tcw8BYWXHrOZfuA1myMkFggzAv24H/OEwyqaU7x+yXd4cJaBUY8v3SjQ3Pnk/zqsg==
   dependencies:
     jest "^24.3.1"
 
@@ -612,10 +612,10 @@ browser-resolve@^1.11.3:
   dependencies:
     resolve "1.1.7"
 
-bs-platform@^5.0.0:
-  version "5.0.0"
-  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-5.0.0.tgz#f9fded818bafc3891aeb85eb4e0d95b8d8f8b4d7"
-  integrity sha512-zxLobdIaf/r7go47hOgxcd6C0ANh7MYMEtZNb9Al7JdoekzFZI50F4GpZpP8kMh9Z+M5PoPE1WuryT4S8mT8Kg==
+bs-platform@^5.0.6:
+  version "5.0.6"
+  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-5.0.6.tgz#88c13041fb020479800de3d82c680bf971091425"
+  integrity sha512-6Boa2VEcWJp2WJr38L7bp3J929nYha7gDarjxb070jWzgfPJ/WbzjipmSfnu2eqqk1MfjEIpBipbPz6n1NISwA==
 
 bsb-native@4.0.6:
   version "4.0.6"
