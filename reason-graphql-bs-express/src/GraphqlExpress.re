@@ -1,13 +1,5 @@
 open Express;
 
-type parseBodyResult =
-  | DocumentAndVariables(
-      Graphql.Language.Ast.document,
-      list((string, Graphql.Language.Ast.constValue)),
-    )
-  | Document(Graphql.Language.Ast.document)
-  | ParseError(string);
-
 let parseBodyIntoDocumentAndVariables = req => {
   switch (Request.bodyJSON(req)) {
   | Some(body) =>
@@ -22,21 +14,20 @@ let parseBodyIntoDocumentAndVariables = req => {
             switch (Js.Dict.get(body, "variables")) {
             | Some(variablesJson) =>
               switch (Graphql.Json.toVariables(variablesJson)) {
-              | Ok(variables) => DocumentAndVariables(document, variables)
-              | Error(_) => Document(document)
+              | Ok(variables) => Belt.Result.Ok((document, Some(variables)))
+              | Error(_) => Ok((document, None))
               }
-            | None => Document(document)
+            | None => Ok((document, None))
             }
-          | Error(SyntaxError(s)) =>
-            ParseError("GraphQL Syntax Error: " ++ s)
+          | Error(SyntaxError(s)) => Error("GraphQL Syntax Error: " ++ s)
           }
-        | None => ParseError("Query must be a string")
+        | None => Error("Query must be a string")
         }
-      | None => ParseError("Must provide Query string")
+      | None => Error("Must provide Query string")
       }
-    | None => ParseError("body must be an JSON object")
+    | None => Error("body must be an JSON object")
     }
-  | None => ParseError("no body found")
+  | None => Error("no body found")
   };
 };
 
@@ -50,22 +41,11 @@ let middleware = (~provideCtx, ~graphiql=false, schema) =>
       |> Js.Promise.resolve
     | "POST" =>
       switch (parseBodyIntoDocumentAndVariables(req)) {
-      | DocumentAndVariables(document, variables) =>
-        GraphqlFuture.Schema.execute(
-          schema,
-          ~document,
-          ~variables,
-          ~ctx=provideCtx(req),
-        )
-        ->Future.map(Graphql.Json.fromConstValue)
-        ->Future.map(json => Response.sendJson(json, res))
-        ->FutureJs.toPromise
-      | Document(document) =>
-        GraphqlFuture.Schema.execute(schema, ~document, ~ctx=provideCtx(req))
-        ->Future.map(Graphql.Json.fromConstValue)
-        ->Future.map(json => Response.sendJson(json, res))
-        ->FutureJs.toPromise
-      | ParseError(error) =>
+      | Ok((document, variables)) =>
+        GraphqlPromise.Schema.execute(schema, ~document, ~variables?, ~ctx=provideCtx(req))
+        |> Js.Promise.(then_(const => resolve(Graphql.Json.fromConstValue(const))))
+        |> Js.Promise.(then_(json => resolve(Response.sendJson(json, res))))
+      | Error(error) =>
         res
         |> Response.status(Response.StatusCode.BadRequest)
         |> Response.sendString(error)

@@ -1,7 +1,7 @@
 type ctx = {userIP: string};
 
 module HelloWorldSchema = {
-  open GraphqlFuture;
+  open GraphqlPromise;
 
   let rootQuery =
     Schema.(
@@ -12,6 +12,13 @@ module HelloWorldSchema = {
           ~args=Arg.[defaultArg("name", string, ~default="world")],
           ~resolve=(ctx, (), name) =>
           name ++ " (" ++ ctx.userIP ++ ")"
+        ),
+        async_field(
+          "helloAsync",
+          nonnull(string),
+          ~args=Arg.[defaultArg("name", string, ~default="world")],
+          ~resolve=(ctx, (), name) =>
+          Js.Promise.resolve(Belt.Result.Ok(name ++ " (" ++ ctx.userIP ++ ")"))
         ),
       ])
     );

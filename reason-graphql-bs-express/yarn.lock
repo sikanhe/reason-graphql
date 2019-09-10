@@ -315,9 +315,9 @@ reason-future@^2.4.0:
   integrity sha512-QtWvUqzfPTxZpB4sWjAS3bFqCB76Lsxm6ekd99LF8iXkLqx2Xg+b9wyobW/KoXMrq48B//hvW3Dh3vhIYlpXHQ==
 
 "reason-graphql@>= 0.1.0":
-  version "0.3.1"
-  resolved "https://registry.yarnpkg.com/reason-graphql/-/reason-graphql-0.3.1.tgz#42ede8386a3c7f2e5679a6e763c9025064491c27"
-  integrity sha512-CzbEOMiz+Mxi9Agca8RFte3TdtyUS/LsyZJop3LFKvWNt1Ltcpja6koxQMEkGN5gmWv/ZDZohFrmpp0lgvLbNA==
+  version "0.4.0"
+  resolved "https://registry.yarnpkg.com/reason-graphql/-/reason-graphql-0.4.0.tgz#adf0ab0758a31f8a7f57b6d579b2d2b8ac6d8f44"
+  integrity sha512-LA4bXaTagzFJtahj1RfCuPQctv1jDPjsU9ejkejl/S0f53bh2rHcI8dqVtf1Cx6sEumLuVIO7afkll6PcODp2w==
   dependencies:
     let-anything "^1.0.3"
     reason-future "^2.4.0"
