@@ -1,4 +1,4 @@
-## 0.4.1 
+## 0.4.2
 ### *reason-graphql*
 * Added __typename support ([#26](https://github.com/sikanhe/reason-graphql/pull/24))
 
