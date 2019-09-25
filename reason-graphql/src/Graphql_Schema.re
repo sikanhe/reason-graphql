@@ -1493,12 +1493,21 @@ module Make = (Io: IO) => {
         };
 
       mapFields(fields, field =>
-        switch (getObjField(field.name, obj)) {
-        | Some(objField) => resolveField(executionContext, src, field, objField)
-        | None =>
-          let err =
-            Printf.sprintf("Field '%s' is not defined on type '%s'", field.name, obj.name);
-          Io.error(`ValidationError(err));
+        if (field.name == "__typename") {
+          Io.ok((fieldName(field), `String(obj.name)));
+        } else {
+          switch (getObjField(field.name, obj)) {
+          | Some(objField) =>
+            resolveField(executionContext, src, field, objField)
+          | None =>
+            let err =
+              Printf.sprintf(
+                "Field '%s' is not defined on type '%s'",
+                field.name,
+                obj.name,
+              );
+            Io.error(`ValidationError(err));
+          };
         }
       )
       ->Io.map(List.Result.join)
