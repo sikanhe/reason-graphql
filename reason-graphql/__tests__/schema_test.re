@@ -344,4 +344,33 @@ describe("Uses fragments to express more complex queries", () => {
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;
   });
+
+  testAsync(
+    "Allows us to use __typename to get a containing object's type name",
+    assertion => {
+    let query = {|
+    query UseFragment {
+      luke: human(id: 1000) {
+        __typename
+      }
+    }
+  |};
+
+    let schema = StarWarsSchema.schema;
+
+    let expected =
+      Schema.okResponse(
+        `Map([("luke", `Map([("__typename", `String("Human"))]))]),
+      )
+      |> Graphql_Json.fromConstValue;
+
+    schema
+    ->Schema.execute(
+        ~document=Parser.parse(query)->Belt.Result.getExn,
+        ~ctx=(),
+      )
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
+  });
 });
