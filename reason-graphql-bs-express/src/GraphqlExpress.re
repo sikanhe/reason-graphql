@@ -42,8 +42,15 @@ let middleware = (~provideCtx, ~graphiql=false, schema) =>
     | "POST" =>
       switch (parseBodyIntoDocumentAndVariables(req)) {
       | Ok((document, variables)) =>
-        GraphqlPromise.Schema.execute(schema, ~document, ~variables?, ~ctx=provideCtx(req))
-        |> Js.Promise.(then_(const => resolve(Graphql.Json.fromConstValue(const))))
+        GraphqlPromise.Schema.execute(
+          schema,
+          ~document,
+          ~variables?,
+          ~ctx=provideCtx(req, res),
+        )
+        |> Js.Promise.(
+             then_(const => resolve(Graphql.Json.fromConstValue(const)))
+           )
         |> Js.Promise.(then_(json => resolve(Response.sendJson(json, res))))
       | Error(error) =>
         res
