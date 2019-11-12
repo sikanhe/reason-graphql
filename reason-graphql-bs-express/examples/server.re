@@ -18,7 +18,9 @@ module HelloWorldSchema = {
           nonnull(string),
           ~args=Arg.[defaultArg("name", string, ~default="world")],
           ~resolve=(ctx, (), name) =>
-          Js.Promise.resolve(Belt.Result.Ok(name ++ " (" ++ ctx.userIP ++ ")"))
+          Js.Promise.resolve(
+            Belt.Result.Ok(name ++ " (" ++ ctx.userIP ++ ")"),
+          )
         ),
       ])
     );
@@ -35,7 +37,7 @@ App.use(app, Middleware.json(~limit=ByteLimit.mb(5.0), ()));
 App.useOnPath(app, ~path="/graphql") @@
 GraphqlExpress.middleware(
   HelloWorldSchema.schema,
-  ~provideCtx=req => {userIP: Request.ip(req)},
+  ~provideCtx=(req, _res) => {userIP: Request.ip(req)},
   ~graphiql=true,
 );
 
