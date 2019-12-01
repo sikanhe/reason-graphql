@@ -116,7 +116,8 @@ let positionAfterWhitespace = (lexer, startPosition) => {
         lexer.lineStart = newPosition;
         aux(newPosition);
       | '\r' =>
-        let newPosition = isChar(source, position + 1, '\n') ? position + 2 : position + 1;
+        let newPosition =
+          isChar(source, position + 1, '\n') ? position + 2 : position + 1;
 
         lexer.line = lexer.line + 1;
         lexer.lineStart = newPosition;
@@ -196,7 +197,9 @@ let readDigits = (source, startingPosition): result(int) => {
       switch (source.[pos]) {
       | '0'..'9' => aux(source, pos + 1)
       | c when pos === startingPosition =>
-        syntaxError("Invalid number, expected digit but got: " ++ String.make(1, c))
+        syntaxError(
+          "Invalid number, expected digit but got: " ++ String.make(1, c),
+        )
       | _ => Ok(pos)
       };
     };
@@ -224,7 +227,9 @@ let readNumber = (source, ~start, ~line, ~column): result(tokenResult) => {
       position := position^ + 1;
       switch (source.[position^]) {
       | '0'..'9' as char =>
-        syntaxError("Invalid number, unexpected digit after 0: " ++ String.make(1, char))
+        syntaxError(
+          "Invalid number, unexpected digit after 0: " ++ String.make(1, char),
+        )
       | _ => Ok()
       };
     } else {
@@ -295,7 +300,13 @@ let char2hex = c =>
  * which means the result of ORing the char2hex() will also be negative.
  */
 let uniCharCode = (a, b, c, d) =>
-  char2hex(a) lsl 12 lor char2hex(b) lsl 8 lor char2hex(c) lsl 4 lor char2hex(d);
+  char2hex(a)
+  lsl 12
+  lor char2hex(b)
+  lsl 8
+  lor char2hex(c)
+  lsl 4
+  lor char2hex(d);
 
 /**
  * Reads a string token from the source file.
@@ -315,7 +326,10 @@ let readString = (source, ~start, ~line, ~column): result(tokenResult) => {
     | '\n' => syntaxError("Unterminated string")
     | '"' =>
       Ok({
-        token: String(value ++ String.sub(source, chunkStart, position - chunkStart)),
+        token:
+          String(
+            value ++ String.sub(source, chunkStart, position - chunkStart),
+          ),
         location: {
           line,
           column,
@@ -360,10 +374,14 @@ let readString = (source, ~start, ~line, ~column): result(tokenResult) => {
 
         | _ =>
           syntaxError(
-            "Invalid character escape sequence: \\" ++ (Char.chr(code) |> String.make(1)),
+            "Invalid character escape sequence: \\"
+            ++ (Char.chr(code) |> String.make(1)),
           )
         };
-      let value = value ++ String.sub(source, chunkStart, newPosition^ - chunkStart - 1) ++ rest;
+      let value =
+        value
+        ++ String.sub(source, chunkStart, newPosition^ - chunkStart - 1)
+        ++ rest;
 
       let nextPosition = newPosition^ + 1;
       aux(value, nextPosition, nextPosition);
@@ -415,7 +433,8 @@ let readToken = (lexer, from): result(tokenResult) => {
     | '|' => Ok({token: Pipe, location: singleWidth})
     | '}' => Ok({token: BraceClose, location: singleWidth})
     | '.' =>
-      if (isChar(source, position + 1, '.') && isChar(source, position + 2, '.')) {
+      if (isChar(source, position + 1, '.')
+          && isChar(source, position + 2, '.')) {
         Ok({
           token: Spread,
           location: {
@@ -428,7 +447,9 @@ let readToken = (lexer, from): result(tokenResult) => {
       } else if (position + 1 >= String.length(source)) {
         syntaxError("Unexpected End of File");
       } else {
-        syntaxError("Unexpected Character" ++ String.make(1, source.[position + 1]));
+        syntaxError(
+          "Unexpected Character" ++ String.make(1, source.[position + 1]),
+        );
       }
     | 'A'..'Z'
     | 'a'..'z'
