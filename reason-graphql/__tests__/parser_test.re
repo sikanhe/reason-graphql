@@ -5,7 +5,7 @@ describe("Parse and print a graphql query", () => {
   open Expect;
 
   let query = {|
-    query MyQuery($id: Int, $another: [String!]!) { field {
+    query My1stQuery($id: Int, $another: [String!]!) { field {
                 hello: name
                 stringField(name:"\"test\"",nameagain:"汉字")
         # Commentsssss
@@ -38,7 +38,7 @@ describe("Parse and print a graphql query", () => {
   let out = document->Belt.Result.getExn->Printer.print;
 
   test("Should prettify the query correctly", () => {
-    let pretty = {|query MyQuery($id: Int, $another: [String!]!) {
+    let pretty = {|query My1stQuery($id: Int, $another: [String!]!) {
   field {
     hello: name
     stringField(name: "\"test\"", nameagain: "汉字")

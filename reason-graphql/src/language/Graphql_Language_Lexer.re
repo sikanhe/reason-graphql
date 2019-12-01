@@ -133,6 +133,7 @@ let isNameChar =
   fun
   | 'A'..'Z'
   | 'a'..'z'
+  | '0'..'9'
   | '_' => true
   | _ => false;
 
@@ -146,6 +147,7 @@ let readName = (source, ~start, ~line, ~column): tokenResult => {
     switch (source.[position]) {
     | 'A'..'Z'
     | 'a'..'z'
+    | '0'..'9'
     | '_' => aux(position + 1)
     | _ => {
         token: Name(String.sub(source, start, position - start)),
