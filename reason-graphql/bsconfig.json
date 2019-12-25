@@ -19,7 +19,7 @@
   "suffix": ".bs.js",
   "bs-dependencies": ["reason-future"],
   "bs-dev-dependencies": ["@glennsl/bs-jest"],
-  "ppx-flags": ["let-anything/ppx"],
+  "ppx-flags": ["bs-let/ppx"],
   "warnings": {
     "number": "-45-44",
     "error": "+101"
