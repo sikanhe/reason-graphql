@@ -24,8 +24,9 @@ module StringMap = {
   exception MissingKey(string);
 
   let getExn = (map, key) =>
-    try (getExn(map, key)) {
-    | Not_found => raise(MissingKey(key))
+    switch (get(map, key)) {
+    | Some(string) => string
+    | None => raise(MissingKey(key))
     };
 };
 
