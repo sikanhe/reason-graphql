@@ -187,8 +187,13 @@ let mutation =
       async_field(
         "updateCharacterName",
         nonnull(updateCharacterResponse),
-        ~args=Arg.[arg("characterId", nonnull(int)), arg("name", nonnull(string))],
-        ~resolve=(_ctx, (), charId, name) =>
+        ~args=
+          Arg.[
+            arg("characterId", nonnull(int)),
+            arg("name", nonnull(string)),
+            arg("appearsIn", string),
+          ],
+        ~resolve=(_ctx, (), charId, name, _appearsIn) =>
         StarWarsData.updateCharacterName(charId, name)
         |> Js.Promise.(then_(x => resolve(Ok(x))))
       ),

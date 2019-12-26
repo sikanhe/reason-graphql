@@ -163,8 +163,8 @@ describe("Mutation operation", () => {
   open Expect;
 
   let mutation = {|
-    mutation MyMutation($id: Int!, $name: String!){
-      updateCharacterName(characterId: $id, name: $name) {
+    mutation MyMutation($id: Int!, $name: String!, $appearsIn: String){
+      updateCharacterName(characterId: $id, name: $name, appearsIn: $appearsIn) {
         character {
           id
           name

@@ -22,12 +22,6 @@ module List = {
 module StringMap = {
   include Belt.Map.String;
   exception MissingKey(string);
-
-  let getExn = (map, key) =>
-    switch (get(map, key)) {
-    | Some(string) => string
-    | None => raise(MissingKey(key))
-    };
 };
 
 module StringSet = Set.Make(String);
@@ -1123,7 +1117,11 @@ module Make = (Io: IO) => {
         | `String(_) as s => s
         | `Boolean(_) as b => b
         | `Enum(_) as e => e
-        | `Variable(v) => StringMap.getExn(variableMap, v)
+        | `Variable(v) =>
+          switch (StringMap.get(variableMap, v)) {
+          | Some(value) => value
+          | None => `Null
+          }
         | `List(xs) => `List(List.map(xs, valueToConstValue(variableMap)))
         | `Map(props) => {
             let props' =
