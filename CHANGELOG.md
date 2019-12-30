@@ -1,6 +1,11 @@
+## 0.6.0
+### *reason-graphql*
+* Upgraded bs-platform to v7.0.1 ([#29](https://github.com/sikanhe/reason-graphql/pull/29))
+* Fixed erroring on undefined variables by coercing missing variables to `null` ([#29](https://github.com/sikanhe/reason-graphql/pull/29))
+
 ## 0.4.2
 ### *reason-graphql*
-* Added __typename support ([#26](https://github.com/sikanhe/reason-graphql/pull/24))
+* Added __typename support ([#24](https://github.com/sikanhe/reason-graphql/pull/24))
 
 ## 0.4.0 
 
