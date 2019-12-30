@@ -1,6 +1,6 @@
 [![CircleCI](https://circleci.com/gh/sikanhe/reason-graphql/tree/master.svg?style=svg)](https://circleci.com/gh/sikanhe/reason-graphql/tree/master)
 
-Type safe GraphQL server in pure reason. Compiles to nodejs. A direct port from https://github.com/andreas/ocaml-graphql-server
+Type safe GraphQL server in pure reason. Compiles to nodejs. A direct port from https://github.com/andreas/ocaml-graphql-server to make it work with Javascript backend.
 
 
 
