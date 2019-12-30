@@ -28,10 +28,10 @@
   },
   "devDependencies": {
     "@glennsl/bs-jest": "^0.4.9",
-    "bs-platform": "^5.0.6"
+    "bs-platform": "^7.0.1"
   },
   "dependencies": {
-    "let-anything": "^1.0.3",
+    "bs-let": "^0.1.11",
     "reason-future": "^2.4.0"
   }
 }
