@@ -17,7 +17,7 @@
     "in-source": true
   },
   "suffix": ".bs.js",
-  "bs-dependencies": ["reason-future"],
+  "bs-dependencies": ["reason-future", "reason-promise"],
   "bs-dev-dependencies": ["@glennsl/bs-jest"],
   "ppx-flags": ["bs-let/ppx"],
   "warnings": {
