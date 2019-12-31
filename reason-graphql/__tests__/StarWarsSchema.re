@@ -1,5 +1,5 @@
 open Belt.Result;
-open GraphqlPromise;
+open GraphqlJsPromise;
 
 module StarWars = StarWarsData;
 

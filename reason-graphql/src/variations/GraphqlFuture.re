@@ -1,9 +1,8 @@
-module Future = {
-  include Future;
-  let return = value;
-  let bind = flatMap;
-  let ok = x => value(Belt.Result.Ok(x));
-};
+module Schema =
+  Graphql.Schema.Make({
+    include Future;
+    let return = value;
+    let bind = flatMap;
+  });
 
-module Schema = Graphql.Schema.Make(Future);
 module Language = Graphql.Language;

@@ -2660,6 +2660,11 @@ reason-future@^2.4.0:
   resolved "https://registry.yarnpkg.com/reason-future/-/reason-future-2.4.0.tgz#3918945a943a6abbb67bc62e90af6a65a0f079ae"
   integrity sha512-QtWvUqzfPTxZpB4sWjAS3bFqCB76Lsxm6ekd99LF8iXkLqx2Xg+b9wyobW/KoXMrq48B//hvW3Dh3vhIYlpXHQ==
 
+reason-promise@^1.0.1:
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/reason-promise/-/reason-promise-1.0.1.tgz#3bd3361c3f942299783d1873cf6c2c2785f00462"
+  integrity sha512-Uw6FFyA85k3BAFycunBfcfkgOEK/lTqdgflyVnUmchhJDNDfmfLWtdKkq6xbH4iQwocLjWW/papo5K+0x5k7hw==
+
 regex-not@^1.0.0, regex-not@^1.0.2:
   version "1.0.2"
   resolved "https://registry.yarnpkg.com/regex-not/-/regex-not-1.0.2.tgz#1f4ece27e00b0b65e0247a6810e6a85d83a5752c"

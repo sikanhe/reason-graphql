@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "bs-let": "^0.1.11",
-    "reason-future": "^2.4.0"
+    "reason-future": "^2.4.0",
+    "reason-promise": "^1.0.1"
   }
 }
