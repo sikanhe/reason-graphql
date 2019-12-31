@@ -1,8 +1,9 @@
-module Schema = Graphql.Schema.Make({
-  type t('a) = Promise.t('a);
+module Schema =
+  Graphql.Schema.Make({
+    type t('a) = Promise.t('a);
 
-  let return = Promise.resolved;
-  let bind = Promise.flatMap;
-});
+    let return = Promise.resolved;
+    let bind = Promise.flatMap;
+  });
 
 module Language = Graphql.Language;
