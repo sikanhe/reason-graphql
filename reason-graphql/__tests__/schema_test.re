@@ -374,3 +374,81 @@ describe("Uses fragments to express more complex queries", () => {
     ->ignore;
   });
 });
+
+describe("introspection query", () => {
+  testAsync(
+    "should reply with queries, mutations, and subscriptions", assertion => {
+    let query = {|
+      query IntrospectionQuery {
+        __schema {
+          queryType {
+            name
+            fields {
+              name
+            }
+          }
+          mutationType {
+            name
+            fields {
+              name
+            }
+          }
+          subscriptionType {
+            name
+            fields {
+              name
+            }
+          }
+        }
+      }
+    |};
+
+    let expected =
+      Schema.okResponse(
+        `Map([
+          (
+            "__schema",
+            `Map([
+              (
+                "queryType",
+                `Map([
+                  ("name", `String("Query")),
+                  (
+                    "fields",
+                    `List([
+                      `Map([("name", `String("hero"))]),
+                      `Map([("name", `String("human"))]),
+                      `Map([("name", `String("droid"))]),
+                    ]),
+                  ),
+                ]),
+              ),
+              (
+                "mutationType",
+                `Map([
+                  ("name", `String("Mutation")),
+                  (
+                    "fields",
+                    `List([
+                      `Map([("name", `String("updateCharacterName"))]),
+                    ]),
+                  ),
+                ]),
+              ),
+              ("subscriptionType", `Null),
+            ]),
+          ),
+        ]),
+      )
+      |> Graphql_Json.fromConstValue;
+
+    schema
+    ->Schema.execute(
+        ~document=Parser.parse(query)->Belt.Result.getExn,
+        ~ctx=(),
+      )
+    ->Schema.resultToJson
+    ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
+    ->ignore;
+  })
+});

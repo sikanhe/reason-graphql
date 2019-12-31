@@ -301,6 +301,7 @@ module Make = (Io: IO) => {
   type schema('ctx) = {
     query: obj('ctx, unit),
     mutation: option(obj('ctx, unit)),
+    subscription: option(obj('ctx, unit)),
   };
 
   type combinedEnum('ctx, 'a) = {
@@ -368,7 +369,7 @@ module Make = (Io: IO) => {
     abstracts: ref([]),
   };
 
-  let create = (~mutation=?, query) => {query, mutation};
+  let create = (~mutation=?, query) => {query, mutation, subscription: None};
 
   /* Built in scalars */
   let string: 'ctx. typ('ctx, option(string)) =
@@ -1026,20 +1027,19 @@ module Make = (Io: IO) => {
               typ: __type,
               args: Arg.[],
               lift: Io.ok,
-              resolve: (_, s) => Option.map(s.mutation, mut => AnyTyp(Object(mut))),
+              resolve: (_, s) =>
+                Option.map(s.mutation, mut => AnyTyp(Object(mut))),
             }),
-            // Field({
-            //   name: "subscriptionType",
-            //   description: None,
-            //   deprecated: NotDeprecated,
-            //   typ: NonNull(__type),
-            //   args: Arg.[],
-            //   lift: Io.ok,
-            //   resolve: (_, s) =>
-            //     Option.map(s.subscription, subs =>
-            //       AnyTyp(Object(obj_of_subscription_obj(subs)))
-            //     ),
-            // }),
+            Field({
+              name: "subscriptionType",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: __type,
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, s) =>
+                Option.map(s.subscription, subs => AnyTyp(Object(subs))),
+            }),
             Field({
               name: "directives",
               description: None,
