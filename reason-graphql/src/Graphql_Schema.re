@@ -301,7 +301,6 @@ module Make = (Io: IO) => {
   type schema('ctx) = {
     query: obj('ctx, unit),
     mutation: option(obj('ctx, unit)),
-    subscription: option(obj('ctx, unit)),
   };
 
   type combinedEnum('ctx, 'a) = {
@@ -369,7 +368,7 @@ module Make = (Io: IO) => {
     abstracts: ref([]),
   };
 
-  let create = (~mutation=?, query) => {query, mutation, subscription: None};
+  let create = (~mutation=?, query) => {query, mutation};
 
   /* Built in scalars */
   let string: 'ctx. typ('ctx, option(string)) =
@@ -1037,8 +1036,7 @@ module Make = (Io: IO) => {
               typ: __type,
               args: Arg.[],
               lift: Io.ok,
-              resolve: (_, s) =>
-                Option.map(s.subscription, subs => AnyTyp(Object(subs))),
+              resolve: (_, _) => None,
             }),
             Field({
               name: "directives",
