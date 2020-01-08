@@ -1026,20 +1026,18 @@ module Make = (Io: IO) => {
               typ: __type,
               args: Arg.[],
               lift: Io.ok,
-              resolve: (_, s) => Option.map(s.mutation, mut => AnyTyp(Object(mut))),
+              resolve: (_, s) =>
+                Option.map(s.mutation, mut => AnyTyp(Object(mut))),
             }),
-            // Field({
-            //   name: "subscriptionType",
-            //   description: None,
-            //   deprecated: NotDeprecated,
-            //   typ: NonNull(__type),
-            //   args: Arg.[],
-            //   lift: Io.ok,
-            //   resolve: (_, s) =>
-            //     Option.map(s.subscription, subs =>
-            //       AnyTyp(Object(obj_of_subscription_obj(subs)))
-            //     ),
-            // }),
+            Field({
+              name: "subscriptionType",
+              description: None,
+              deprecated: NotDeprecated,
+              typ: __type,
+              args: Arg.[],
+              lift: Io.ok,
+              resolve: (_, _) => None,
+            }),
             Field({
               name: "directives",
               description: None,
