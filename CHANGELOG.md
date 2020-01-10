@@ -1,3 +1,7 @@
+## 0.6.1 
+### *reason-graphql*
+* Fixed introspection not working due to subscription type missing ([#33](https://github.com/sikanhe/reason-graphql/pull/33))
+
 ## 0.6.0
 ### *reason-graphql*
 * Upgraded bs-platform to v7.0.1 ([#29](https://github.com/sikanhe/reason-graphql/pull/29))
