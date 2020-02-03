@@ -211,12 +211,14 @@ let rec visit = (mapper, ast: document) => {
 }
 and visitDefinition = mapper =>
   fun
-  | OperationDefinition(node) =>
-    OperationDefinition(visitOperationDefinition(mapper, node))
-  | FragmentDefinition(node) =>
-    FragmentDefinition(visitFragmentDefinition(mapper, node))
-and visitOperationDefinition = (mapper, node) => {
-  let node = mapper.operationDefinition(node);
+  | OperationDefinition(operationDefinition) =>
+    OperationDefinition(
+      visitOperationDefinition(mapper, operationDefinition),
+    )
+  | FragmentDefinition(fragmentDefinition) =>
+    FragmentDefinition(visitFragmentDefinition(mapper, fragmentDefinition))
+and visitOperationDefinition = (mapper, operationDefinition) => {
+  let node = mapper.operationDefinition(operationDefinition);
   {
     ...node,
     name:
@@ -229,18 +231,18 @@ and visitOperationDefinition = (mapper, node) => {
     directives: visitDirectives(mapper, node.directives),
   };
 }
-and visitFragmentDefinition = (mapper, node) => {
-  let node = mapper.fragmentDefinition(node);
+and visitFragmentDefinition = (mapper, fragmentDefinition) => {
+  let fragmentDefinition = mapper.fragmentDefinition(fragmentDefinition);
 
   {
-    ...node,
-    name: visitName(mapper, node.name),
-    selectionSet: visitSelectionSet(mapper, node.selectionSet),
-    directives: visitDirectives(mapper, node.directives),
+    ...fragmentDefinition,
+    name: visitName(mapper, fragmentDefinition.name),
+    selectionSet: visitSelectionSet(mapper, fragmentDefinition.selectionSet),
+    directives: visitDirectives(mapper, fragmentDefinition.directives),
   };
 }
-and visitVariableDefinition = (mapper, node) => {
-  let variableDefinition = mapper.variableDefinition(node);
+and visitVariableDefinition = (mapper, variableDefinition) => {
+  let variableDefinition = mapper.variableDefinition(variableDefinition);
   let `Variable(variable) = variableDefinition.variable;
 
   {
