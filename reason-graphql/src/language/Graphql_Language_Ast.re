@@ -20,6 +20,8 @@ type value = [
   | `Variable(string)
 ];
 
+type argument = (string, value);
+
 type document = {definitions: list(definition)}
 
 and definition =
@@ -54,7 +56,7 @@ and selection =
 and field = {
   alias: option(string),
   name: string,
-  arguments: list((string, value)),
+  arguments: list(argument),
   selectionSet: list(selection),
   directives: list(directive),
 }
@@ -80,7 +82,7 @@ and fragmentSpread = {
 /* Directives */
 and directive = {
   name: string,
-  arguments: list((string, value)),
+  arguments: list(argument),
 }
 
 and typeReference =
@@ -165,8 +167,8 @@ type astMapping = {
   selection: selection => selection,
   selectionSet: list(selection) => list(selection),
   field: field => field,
-  arguments: list((string, value)) => list((string, value)),
-  argument: ((string, value)) => (string, value),
+  arguments: list(argument) => list(argument),
+  argument: argument => argument,
   inlineFragmentDefinition:
     inlineFragmentDefinition => inlineFragmentDefinition,
   fragmentSpread: fragmentSpread => fragmentSpread,
