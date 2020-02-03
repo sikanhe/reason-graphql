@@ -175,14 +175,7 @@ type astMapping = {
   listType: typeReference => typeReference,
   nonNullType: typeReference => typeReference,
   constValue: constValue => constValue,
-  intValue: int => constValue,
-  floatValue: float => constValue,
-  booleanValue: bool => constValue,
-  stringValue: string => constValue,
-  enumValue: string => constValue,
-  nullValue: unit => constValue,
-  listValue: list(constValue) => constValue,
-  objectValue: list((string, constValue)) => constValue,
+  value: value => value,
   variable: string => string,
 };
 
@@ -206,16 +199,9 @@ let defaultMapper = {
   typeReference: a => a,
   namedType: a => NamedType(a),
   constValue: id,
+  value: id,
   listType: a => ListType(a),
   nonNullType: a => NonNullType(a),
-  intValue: a => `Int(a),
-  floatValue: a => `Float(a),
-  booleanValue: a => `Boolean(a),
-  stringValue: a => `String(a),
-  enumValue: a => `Enum(a),
-  nullValue: () => `Null,
-  listValue: a => `List(a),
-  objectValue: a => `Map(a),
   variable: id,
 };
 
@@ -283,7 +269,8 @@ and visitArguments = (mapper, arguments) => {
   arguments |> mapper.arguments |> List.map(visitArgument(mapper));
 }
 and visitArgument = (mapper, argument) => {
-  argument |> mapper.argument;
+  let (name, value) = mapper.argument(argument);
+  (name, mapper.value(value))
 }
 and visitSelectionSet = (mapper, selectionSet) => {
   selectionSet |> mapper.selectionSet |> List.map(visitSelection(mapper));
@@ -334,15 +321,9 @@ and visitTypeReference = (mapper, typeReference) => {
 and visitName = (mapper, name) => {
   mapper.name(name);
 }
+and visitValue = (mapper, value) => {
+  mapper.value(value);
+}
 and visitConstValue = (mapper, constValue) => {
-  switch (mapper.constValue(constValue)) {
-  | `Int(int) => mapper.intValue(int)
-  | `Float(float) => mapper.floatValue(float)
-  | `Boolean(bool) => mapper.booleanValue(bool)
-  | `String(string) => mapper.stringValue(string)
-  | `Enum(enum) => mapper.enumValue(enum)
-  | `Map(rows) => mapper.objectValue(rows)
-  | `List(list) => mapper.listValue(list)
-  | `Null => mapper.nullValue()
-  };
+  mapper.constValue(constValue);
 };
