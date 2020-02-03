@@ -174,14 +174,15 @@ type astMapping = {
   namedType: string => typeReference,
   listType: typeReference => typeReference,
   nonNullType: typeReference => typeReference,
-  intValue: int => value,
-  floatValue: float => value,
-  booleanValue: bool => value,
-  stringValue: string => value,
-  enumValue: string => value,
-  nullValue: unit => value,
-  listValue: list(value) => value,
-  objectValue: list((string, value)) => value,
+  constValue: constValue => constValue,
+  intValue: int => constValue,
+  floatValue: float => constValue,
+  booleanValue: bool => constValue,
+  stringValue: string => constValue,
+  enumValue: string => constValue,
+  nullValue: unit => constValue,
+  listValue: list(constValue) => constValue,
+  objectValue: list((string, constValue)) => constValue,
   variable: string => string,
 };
 
@@ -204,6 +205,7 @@ let defaultMapper = {
   fragmentSpread: id,
   typeReference: a => a,
   namedType: a => NamedType(a),
+  constValue: id,
   listType: a => ListType(a),
   nonNullType: a => NonNullType(a),
   intValue: a => `Int(a),
@@ -214,7 +216,7 @@ let defaultMapper = {
   nullValue: () => `Null,
   listValue: a => `List(a),
   objectValue: a => `Map(a),
-  variable: a => a,
+  variable: id,
 };
 
 let rec visit = (mapper, ast: document) => {
@@ -256,10 +258,14 @@ and visitVariableDefinition = (mapper, node) => {
   let `Variable(variable) = variableDefinition.variable;
 
   {
-    ...variableDefinition,
     variable: `Variable(mapper.variable(variable)),
     typ: visitTypeReference(mapper, variableDefinition.typ),
     directives: visitDirectives(mapper, variableDefinition.directives),
+    defaultValue:
+      switch (variableDefinition.defaultValue) {
+      | Some(constValue) => Some(visitConstValue(mapper, constValue))
+      | None => None
+      },
   };
 }
 and visitDirectives = (mapper, directives) => {
@@ -268,7 +274,10 @@ and visitDirectives = (mapper, directives) => {
 }
 and visitDirective = (mapper, directive) => {
   let directive = mapper.directive(directive);
-  {...directive, arguments: visitArguments(mapper, directive.arguments)};
+  {
+    name: visitName(mapper, directive.name),
+    arguments: visitArguments(mapper, directive.arguments),
+  };
 }
 and visitArguments = (mapper, arguments) => {
   arguments |> mapper.arguments |> List.map(visitArgument(mapper));
@@ -324,4 +333,16 @@ and visitTypeReference = (mapper, typeReference) => {
 }
 and visitName = (mapper, name) => {
   mapper.name(name);
+}
+and visitConstValue = (mapper, constValue) => {
+  switch (mapper.constValue(constValue)) {
+  | `Int(int) => mapper.intValue(int)
+  | `Float(float) => mapper.floatValue(float)
+  | `Boolean(bool) => mapper.booleanValue(bool)
+  | `String(string) => mapper.stringValue(string)
+  | `Enum(enum) => mapper.enumValue(enum)
+  | `Map(rows) => mapper.objectValue(rows)
+  | `List(list) => mapper.listValue(list)
+  | `Null => mapper.nullValue()
+  };
 };
