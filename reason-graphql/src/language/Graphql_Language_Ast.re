@@ -40,7 +40,7 @@ and operationType =
   | Subscription
 
 and variableDefinition = {
-  variable: value,
+  variable: [ | `Variable(string)],
   typ: typeReference,
   defaultValue: option(constValue),
   directives: list(directive),
@@ -152,4 +152,176 @@ and typeExtensionDefinition = {definition: objectTypeDefinition}
 and directiveDefinition = {
   name: string,
   arguments: list(inputValueDefinition),
+};
+
+type astMapping = {
+  name: string => string,
+  document: document => document,
+  operationDefinition: operationDefinition => operationDefinition,
+  fragmentDefinition: fragmentDefinition => fragmentDefinition,
+  variableDefinition: variableDefinition => variableDefinition,
+  directives: list(directive) => list(directive),
+  directive: directive => directive,
+  selection: selection => selection,
+  selectionSet: list(selection) => list(selection),
+  field: field => field,
+  arguments: list((string, value)) => list((string, value)),
+  argument: ((string, value)) => (string, value),
+  inlineFragmentDefinition:
+    inlineFragmentDefinition => inlineFragmentDefinition,
+  fragmentSpread: fragmentSpread => fragmentSpread,
+  typeReference: typeReference => typeReference,
+  namedType: string => typeReference,
+  listType: typeReference => typeReference,
+  nonNullType: typeReference => typeReference,
+  intValue: int => value,
+  floatValue: float => value,
+  booleanValue: bool => value,
+  stringValue: string => value,
+  enumValue: string => value,
+  nullValue: unit => value,
+  listValue: list(value) => value,
+  objectValue: list((string, value)) => value,
+  variable: string => string,
+};
+
+let id = a => a;
+
+let defaultMapper = {
+  name: id,
+  document: id,
+  operationDefinition: id,
+  fragmentDefinition: id,
+  variableDefinition: id,
+  directives: id,
+  directive: id,
+  selection: id,
+  selectionSet: id,
+  field: id,
+  arguments: id,
+  argument: id,
+  inlineFragmentDefinition: id,
+  fragmentSpread: id,
+  typeReference: a => a,
+  namedType: a => NamedType(a),
+  listType: a => ListType(a),
+  nonNullType: a => NonNullType(a),
+  intValue: a => `Int(a),
+  floatValue: a => `Float(a),
+  booleanValue: a => `Boolean(a),
+  stringValue: a => `String(a),
+  enumValue: a => `Enum(a),
+  nullValue: () => `Null,
+  listValue: a => `List(a),
+  objectValue: a => `Map(a),
+  variable: a => a,
+};
+
+let rec visit = (mapper, ast: document) => {
+  let document = mapper.document(ast);
+  {definitions: document.definitions |> List.map(visitDefinition(mapper))};
+}
+and visitDefinition = mapper =>
+  fun
+  | OperationDefinition(node) =>
+    OperationDefinition(visitOperationDefinition(mapper, node))
+  | FragmentDefinition(node) =>
+    FragmentDefinition(visitFragmentDefinition(mapper, node))
+and visitOperationDefinition = (mapper, node) => {
+  let node = mapper.operationDefinition(node);
+  {
+    ...node,
+    name:
+      switch (node.name) {
+      | Some(name) => Some(visitName(mapper, name))
+      | None => None
+      },
+    variableDefinition:
+      List.map(visitVariableDefinition(mapper), node.variableDefinition),
+    directives: visitDirectives(mapper, node.directives),
+  };
+}
+and visitFragmentDefinition = (mapper, node) => {
+  let node = mapper.fragmentDefinition(node);
+
+  {
+    ...node,
+    name: visitName(mapper, node.name),
+    selectionSet: visitSelectionSet(mapper, node.selectionSet),
+    directives: visitDirectives(mapper, node.directives),
+  };
+}
+and visitVariableDefinition = (mapper, node) => {
+  let variableDefinition = mapper.variableDefinition(node);
+  let `Variable(variable) = variableDefinition.variable;
+
+  {
+    ...variableDefinition,
+    variable: `Variable(mapper.variable(variable)),
+    typ: visitTypeReference(mapper, variableDefinition.typ),
+    directives: visitDirectives(mapper, variableDefinition.directives),
+  };
+}
+and visitDirectives = (mapper, directives) => {
+  let directives = mapper.directives(directives);
+  List.map(visitDirective(mapper), directives);
+}
+and visitDirective = (mapper, directive) => {
+  let directive = mapper.directive(directive);
+  {...directive, arguments: visitArguments(mapper, directive.arguments)};
+}
+and visitArguments = (mapper, arguments) => {
+  arguments |> mapper.arguments |> List.map(visitArgument(mapper));
+}
+and visitArgument = (mapper, argument) => {
+  argument |> mapper.argument;
+}
+and visitSelectionSet = (mapper, selectionSet) => {
+  selectionSet |> mapper.selectionSet |> List.map(visitSelection(mapper));
+}
+and visitSelection = (mapper, selection) => {
+  switch (mapper.selection(selection)) {
+  | Field(field) => Field(visitField(mapper, field))
+  | FragmentSpread(fragmentSpread) =>
+    FragmentSpread(visitFragmentSpread(mapper, fragmentSpread))
+  | InlineFragment(inlineFragment) =>
+    InlineFragment(visitInlineFragment(mapper, inlineFragment))
+  };
+}
+and visitField = (mapper, field) => {
+  let field = mapper.field(field);
+
+  {
+    ...field,
+    name: visitName(mapper, field.name),
+    arguments: visitArguments(mapper, field.arguments),
+    selectionSet: visitSelectionSet(mapper, field.selectionSet),
+    directives: visitDirectives(mapper, field.directives),
+  };
+}
+and visitFragmentSpread = (mapper, fragmentSpread) => {
+  let fragmentSpread = mapper.fragmentSpread(fragmentSpread);
+  {
+    name: visitName(mapper, fragmentSpread.name),
+    directives: visitDirectives(mapper, fragmentSpread.directives),
+  };
+}
+and visitInlineFragment = (mapper, inlineFragment) => {
+  let inlineFragment = mapper.inlineFragmentDefinition(inlineFragment);
+  {
+    ...inlineFragment,
+    selectionSet: visitSelectionSet(mapper, inlineFragment.selectionSet),
+    directives: visitDirectives(mapper, inlineFragment.directives),
+  };
+}
+and visitTypeReference = (mapper, typeReference) => {
+  let typeReference = mapper.typeReference(typeReference);
+  switch (typeReference) {
+  | NamedType(string) => mapper.namedType(string)
+  | ListType(listType) => mapper.listType(listType)
+  | NonNullType(nonNullType) => mapper.nonNullType(nonNullType)
+  };
+}
+and visitName = (mapper, name) => {
+  mapper.name(name);
 };

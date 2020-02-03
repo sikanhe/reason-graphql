@@ -37,7 +37,7 @@ let rec printType =
   | NonNullType(typ) => printType(typ) ++ "!";
 
 let printVariableDef = ({variable, typ}: variableDefinition) =>
-  printValue(variable) ++ ": " ++ printType(typ);
+  printValue((variable :> value)) ++ ": " ++ printType(typ);
 let printVariables = vars => vars->Belt.List.map(printVariableDef)->join(", ");
 
 let printArgument = ((name, value)) => name ++ ": " ++ printValue(value);
