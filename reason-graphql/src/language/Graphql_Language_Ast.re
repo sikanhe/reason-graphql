@@ -220,17 +220,18 @@ and visitDefinition = mapper =>
   | FragmentDefinition(fragmentDefinition) =>
     FragmentDefinition(visitFragmentDefinition(mapper, fragmentDefinition))
 and visitOperationDefinition = (mapper, operationDefinition) => {
-  let node = mapper.operationDefinition(operationDefinition);
+  let operationDefinition = mapper.operationDefinition(operationDefinition);
   {
-    ...node,
+    ...operationDefinition,
     name:
-      switch (node.name) {
+      switch (operationDefinition.name) {
       | Some(name) => Some(visitName(mapper, name))
       | None => None
       },
     variableDefinition:
-      List.map(visitVariableDefinition(mapper), node.variableDefinition),
-    directives: visitDirectives(mapper, node.directives),
+      List.map(visitVariableDefinition(mapper), operationDefinition.variableDefinition),
+    directives: visitDirectives(mapper, operationDefinition.directives),
+    selectionSet: visitSelectionSet(mapper, operationDefinition.selectionSet)
   };
 }
 and visitFragmentDefinition = (mapper, fragmentDefinition) => {
