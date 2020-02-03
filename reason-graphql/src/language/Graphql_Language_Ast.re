@@ -270,7 +270,7 @@ and visitArguments = (mapper, arguments) => {
 }
 and visitArgument = (mapper, argument) => {
   let (name, value) = mapper.argument(argument);
-  (name, mapper.value(value))
+  (name, visitValue(mapper, value));
 }
 and visitSelectionSet = (mapper, selectionSet) => {
   selectionSet |> mapper.selectionSet |> List.map(visitSelection(mapper));
