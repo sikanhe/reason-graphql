@@ -207,128 +207,158 @@ let defaultMapper = {
   variable: id,
 };
 
-let rec visit = (mapper, ast: document) => {
-  let document = mapper.document(ast);
-  {definitions: document.definitions |> List.map(visitDefinition(mapper))};
+let rec visit = (~enter=defaultMapper, ~leave=defaultMapper, ast: document) => {
+  let document = enter.document(ast);
+  {
+    definitions:
+      document.definitions |> List.map(visitDefinition(~enter, ~leave)),
+  }
+  |> leave.document;
 }
-and visitDefinition = mapper =>
+and visitDefinition = (~enter, ~leave) =>
   fun
   | Operation(operationDefinition) =>
-    Operation(
-      visitOperationDefinition(mapper, operationDefinition),
-    )
+    Operation(visitOperationDefinition(~enter, ~leave, operationDefinition))
   | Fragment(fragmentDefinition) =>
-    Fragment(visitFragmentDefinition(mapper, fragmentDefinition))
-and visitOperationDefinition = (mapper, operationDefinition) => {
-  let operationDefinition = mapper.operationDefinition(operationDefinition);
+    Fragment(visitFragmentDefinition(~enter, ~leave, fragmentDefinition))
+and visitOperationDefinition = (~enter, ~leave, operationDefinition) => {
+  let operationDefinition = enter.operationDefinition(operationDefinition);
   {
     ...operationDefinition,
     name:
       switch (operationDefinition.name) {
-      | Some(name) => Some(visitName(mapper, name))
+      | Some(name) => Some(visitName(~enter, ~leave, name))
       | None => None
       },
     variableDefinition:
-      List.map(visitVariableDefinition(mapper), operationDefinition.variableDefinition),
-    directives: visitDirectives(mapper, operationDefinition.directives),
-    selectionSet: visitSelectionSet(mapper, operationDefinition.selectionSet)
+      List.map(
+        visitVariableDefinition(~enter, ~leave),
+        operationDefinition.variableDefinition,
+      ),
+    directives:
+      visitDirectives(~enter, ~leave, operationDefinition.directives),
+    selectionSet:
+      visitSelectionSet(~enter, ~leave, operationDefinition.selectionSet),
   };
 }
-and visitFragmentDefinition = (mapper, fragmentDefinition) => {
-  let fragmentDefinition = mapper.fragmentDefinition(fragmentDefinition);
+and visitFragmentDefinition = (~enter, ~leave, fragmentDefinition) => {
+  let fragmentDefinition = enter.fragmentDefinition(fragmentDefinition);
 
   {
     ...fragmentDefinition,
-    name: visitName(mapper, fragmentDefinition.name),
-    selectionSet: visitSelectionSet(mapper, fragmentDefinition.selectionSet),
-    directives: visitDirectives(mapper, fragmentDefinition.directives),
-  };
+    name: visitName(~enter, ~leave, fragmentDefinition.name),
+    selectionSet:
+      visitSelectionSet(~enter, ~leave, fragmentDefinition.selectionSet),
+    directives:
+      visitDirectives(~enter, ~leave, fragmentDefinition.directives),
+  }
+  |> leave.fragmentDefinition;
 }
-and visitVariableDefinition = (mapper, variableDefinition) => {
-  let variableDefinition = mapper.variableDefinition(variableDefinition);
+and visitVariableDefinition = (~enter, ~leave, variableDefinition) => {
+  let variableDefinition = enter.variableDefinition(variableDefinition);
   let `Variable(variable) = variableDefinition.variable;
 
   {
-    variable: `Variable(mapper.variable(variable)),
-    typ: visitTypeReference(mapper, variableDefinition.typ),
-    directives: visitDirectives(mapper, variableDefinition.directives),
+    variable: `Variable(enter.variable(variable)),
+    typ: visitTypeReference(~enter, ~leave, variableDefinition.typ),
+    directives:
+      visitDirectives(~enter, ~leave, variableDefinition.directives),
     defaultValue:
       switch (variableDefinition.defaultValue) {
-      | Some(constValue) => Some(visitConstValue(mapper, constValue))
+      | Some(constValue) =>
+        Some(visitConstValue(~enter, ~leave, constValue))
       | None => None
       },
-  };
+  }
+  |> leave.variableDefinition;
 }
-and visitDirectives = (mapper, directives) => {
-  let directives = mapper.directives(directives);
-  List.map(visitDirective(mapper), directives);
+and visitDirectives = (~enter, ~leave, directives) => {
+  directives
+  |> enter.directives
+  |> List.map(visitDirective(~enter, ~leave))
+  |> leave.directives;
 }
-and visitDirective = (mapper, directive) => {
-  let directive = mapper.directive(directive);
+and visitDirective = (~enter, ~leave, directive) => {
+  let directive = enter.directive(directive);
   {
-    name: visitName(mapper, directive.name),
-    arguments: visitArguments(mapper, directive.arguments),
-  };
+    name: visitName(~enter, ~leave, directive.name),
+    arguments: visitArguments(~enter, ~leave, directive.arguments),
+  }
+  |> leave.directive;
 }
-and visitArguments = (mapper, arguments) => {
-  arguments |> mapper.arguments |> List.map(visitArgument(mapper));
+and visitArguments = (~enter, ~leave, arguments) => {
+  arguments
+  |> enter.arguments
+  |> List.map(visitArgument(~enter, ~leave))
+  |> leave.arguments;
 }
-and visitArgument = (mapper, argument) => {
-  let (name, value) = mapper.argument(argument);
-  (name, visitValue(mapper, value));
+and visitArgument = (~enter, ~leave, argument) => {
+  let (name, value) = enter.argument(argument);
+  (name, visitValue(~enter, ~leave, value)) |> leave.argument;
 }
-and visitSelectionSet = (mapper, selectionSet) => {
-  selectionSet |> mapper.selectionSet |> List.map(visitSelection(mapper));
+and visitSelectionSet = (~enter, ~leave, selectionSet) => {
+  selectionSet
+  |> enter.selectionSet
+  |> List.map(visitSelection(~enter, ~leave))
+  |> leave.selectionSet;
 }
-and visitSelection = (mapper, selection) => {
-  switch (mapper.selection(selection)) {
-  | Field(field) => Field(visitField(mapper, field))
-  | FragmentSpread(fragmentSpread) =>
-    FragmentSpread(visitFragmentSpread(mapper, fragmentSpread))
-  | InlineFragment(inlineFragment) =>
-    InlineFragment(visitInlineFragment(mapper, inlineFragment))
-  };
+and visitSelection = (~enter, ~leave, selection) => {
+  (
+    switch (enter.selection(selection)) {
+    | Field(field) => Field(visitField(~enter, ~leave, field))
+    | FragmentSpread(fragmentSpread) =>
+      FragmentSpread(visitFragmentSpread(~enter, ~leave, fragmentSpread))
+    | InlineFragment(inlineFragment) =>
+      InlineFragment(visitInlineFragment(~enter, ~leave, inlineFragment))
+    }
+  )
+  |> leave.selection;
 }
-and visitField = (mapper, field) => {
-  let field = mapper.field(field);
-
+and visitField = (~enter, ~leave, field) => {
+  let field = enter.field(field);
   {
     ...field,
-    name: visitName(mapper, field.name),
-    arguments: visitArguments(mapper, field.arguments),
-    selectionSet: visitSelectionSet(mapper, field.selectionSet),
-    directives: visitDirectives(mapper, field.directives),
-  };
+    name: visitName(~enter, ~leave, field.name),
+    arguments: visitArguments(~enter, ~leave, field.arguments),
+    selectionSet: visitSelectionSet(~enter, ~leave, field.selectionSet),
+    directives: visitDirectives(~enter, ~leave, field.directives),
+  }
+  |> leave.field;
 }
-and visitFragmentSpread = (mapper, fragmentSpread) => {
-  let fragmentSpread = mapper.fragmentSpread(fragmentSpread);
+and visitFragmentSpread = (~enter, ~leave, fragmentSpread) => {
+  let fragmentSpread = enter.fragmentSpread(fragmentSpread);
   {
-    name: visitName(mapper, fragmentSpread.name),
-    directives: visitDirectives(mapper, fragmentSpread.directives),
-  };
+    name: visitName(~enter, ~leave, fragmentSpread.name),
+    directives: visitDirectives(~enter, ~leave, fragmentSpread.directives),
+  }
+  |> leave.fragmentSpread;
 }
-and visitInlineFragment = (mapper, inlineFragment) => {
-  let inlineFragment = mapper.inlineFragmentDefinition(inlineFragment);
+and visitInlineFragment = (~enter, ~leave, inlineFragment) => {
+  let inlineFragment = enter.inlineFragmentDefinition(inlineFragment);
   {
     ...inlineFragment,
-    selectionSet: visitSelectionSet(mapper, inlineFragment.selectionSet),
-    directives: visitDirectives(mapper, inlineFragment.directives),
-  };
+    selectionSet:
+      visitSelectionSet(~enter, ~leave, inlineFragment.selectionSet),
+    directives: visitDirectives(~enter, ~leave, inlineFragment.directives),
+  }
+  |> leave.inlineFragmentDefinition;
 }
-and visitTypeReference = (mapper, typeReference) => {
-  let typeReference = mapper.typeReference(typeReference);
-  switch (typeReference) {
-  | NamedType(string) => mapper.namedType(string)
-  | ListType(listType) => mapper.listType(listType)
-  | NonNullType(nonNullType) => mapper.nonNullType(nonNullType)
-  };
+and visitTypeReference = (~enter, ~leave, typeReference) => {
+  (
+    switch (enter.typeReference(typeReference)) {
+    | NamedType(string) => enter.namedType(string)
+    | ListType(listType) => enter.listType(listType)
+    | NonNullType(nonNullType) => enter.nonNullType(nonNullType)
+    }
+  )
+  |> leave.typeReference;
 }
-and visitName = (mapper, name) => {
-  mapper.name(name);
+and visitName = (~enter, ~leave, name) => {
+  enter.name(name) |> leave.name;
 }
-and visitValue = (mapper, value) => {
-  mapper.value(value);
+and visitValue = (~enter, ~leave, value) => {
+  enter.value(value) |> leave.value;
 }
-and visitConstValue = (mapper, constValue) => {
-  mapper.constValue(constValue);
+and visitConstValue = (~enter, ~leave, constValue) => {
+  enter.constValue(constValue) |> leave.constValue;
 };

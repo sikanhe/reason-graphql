@@ -97,32 +97,7 @@ fragment bazFields on FragmentModel {
   }
 }|};
 
-  test("default mapper", () => {
-    open Expect;
-
-    let document = Parser.parse(query)->Belt.Result.getExn;
-
-    let modified = Ast.visit(Ast.defaultMapper, document);
-
-    let out = Printer.print(modified);
-
-    expect(out) |> toBe(query);
-  });
-
-  test("mapper", () => {
-    open Expect;
-
-    let document = Parser.parse(query)->Belt.Result.getExn;
-
-    let modified =
-      Ast.visit(
-        {...Ast.defaultMapper, field: field => {...field, name: "HI"}},
-        document,
-      );
-
-    let out = Printer.print(modified);
-
-    let expected = {|query My1stQuery($id: Int, $another: [String!]!) {
+  let expected = {|query My1stQuery($id: Int, $another: [String!]!) {
   HI {
     hello: HI
     HI(name: "\"test\"", nameagain: "汉字")
@@ -148,6 +123,53 @@ fragment bazFields on FragmentModel {
     }
   }
 }|};
+
+  test("default mapper", () => {
+    open Expect;
+
+    let document = Parser.parse(query)->Belt.Result.getExn;
+
+    let modified = Ast.visit(~enter=Ast.defaultMapper, document);
+
+    let out = Printer.print(modified);
+
+    expect(out) |> toBe(query);
+  });
+
+  test("enter", () => {
+    open Expect;
+
+    let document = Parser.parse(query)->Belt.Result.getExn;
+
+    let modified =
+      Ast.visit(
+        ~enter={
+          ...Ast.defaultMapper,
+          field: field => {...field, name: "HI"},
+        },
+        document,
+      );
+
+    let out = Printer.print(modified);
+
+    expect(out) |> toBe(expected);
+  });
+
+    test("leave", () => {
+    open Expect;
+
+    let document = Parser.parse(query)->Belt.Result.getExn;
+
+    let modified =
+      Ast.visit(
+        ~leave={
+          ...Ast.defaultMapper,
+          field: field => {...field, name: "HI"},
+        },
+        document,
+      );
+
+    let out = Printer.print(modified);
 
     expect(out) |> toBe(expected);
   });
