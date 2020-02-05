@@ -24,7 +24,7 @@ let rec printValue: value => string =
   | `Variable(string) => "$" ++ string
   | `Enum(enum) => enum
   | `List(values) => "[" ++ join(values |> Belt.List.map(_, printValue), ", ") ++ "]"
-  | `Map(fields) => "{" ++ printObjectFields(fields) ++ "}"
+  | `Object(fields) => "{" ++ printObjectFields(fields) ++ "}"
 
 and printObjectFields = fields => fields |> Belt.List.map(_, printObjectField) |> join(_, ", ")
 
@@ -129,8 +129,8 @@ let printFragmentDef = ({name, typeCondition, directives, selectionSet}) =>
 
 let printDefinition = definition =>
   switch (definition) {
-  | OperationDefinition(operationDef) => printOperationDef(operationDef)
-  | FragmentDefinition(fragmentDef) => printFragmentDef(fragmentDef)
+  | Operation(operationDef) => printOperationDef(operationDef)
+  | Fragment(fragmentDef) => printFragmentDef(fragmentDef)
   };
 
 let print = ({definitions}: document) =>

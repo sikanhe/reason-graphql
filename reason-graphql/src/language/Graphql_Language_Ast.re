@@ -10,13 +10,13 @@ type primitiveValue = [
 type constValue = [
   primitiveValue
   | `List(list(constValue))
-  | `Map(list((string, constValue)))
+  | `Object(list((string, constValue)))
 ];
 
 type value = [
   primitiveValue
   | `List(list(value))
-  | `Map(list((string, value)))
+  | `Object(list((string, value)))
   | `Variable(string)
 ];
 
@@ -25,8 +25,8 @@ type argument = (string, value);
 type document = {definitions: list(definition)}
 
 and definition =
-  | OperationDefinition(operationDefinition)
-  | FragmentDefinition(fragmentDefinition)
+  | Operation(operationDefinition)
+  | Fragment(fragmentDefinition)
 
 and operationDefinition = {
   operationType,
@@ -213,12 +213,12 @@ let rec visit = (mapper, ast: document) => {
 }
 and visitDefinition = mapper =>
   fun
-  | OperationDefinition(operationDefinition) =>
-    OperationDefinition(
+  | Operation(operationDefinition) =>
+    Operation(
       visitOperationDefinition(mapper, operationDefinition),
     )
-  | FragmentDefinition(fragmentDefinition) =>
-    FragmentDefinition(visitFragmentDefinition(mapper, fragmentDefinition))
+  | Fragment(fragmentDefinition) =>
+    Fragment(visitFragmentDefinition(mapper, fragmentDefinition))
 and visitOperationDefinition = (mapper, operationDefinition) => {
   let operationDefinition = mapper.operationDefinition(operationDefinition);
   {
