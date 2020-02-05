@@ -144,7 +144,7 @@ and parseObject = (lexer: Lexer.t, ~isConst: bool) => {
   };
 
   let%Result fields = parseFields([]);
-  Ok(`Map(Belt.List.reverse(fields)));
+  Ok(`Object(Belt.List.reverse(fields)));
 }
 
 and parseObjectField = (lexer: Lexer.t, ~isConst: bool): result((string, value)) => {
@@ -297,7 +297,7 @@ let parseOperationDefinition = (lexer: Lexer.t) =>
   | BraceOpen =>
     let%Result selectionSet = parseSelectionSet(lexer);
     Ok(
-      OperationDefinition({
+      Operation({
         operationType: Query,
         name: None,
         variableDefinition: [],
@@ -318,7 +318,7 @@ let parseOperationDefinition = (lexer: Lexer.t) =>
     let%Result directives = parseDirectives(lexer, ~isConst=false);
     let%Result selectionSet = parseSelectionSet(lexer);
 
-    Ok(OperationDefinition({operationType, name, variableDefinition, directives, selectionSet}));
+    Ok(Operation({operationType, name, variableDefinition, directives, selectionSet}));
   };
 
 let parseFragmentDefinition = (lexer: Lexer.t) => {
@@ -330,7 +330,7 @@ let parseFragmentDefinition = (lexer: Lexer.t) => {
   let%Result selectionSet = parseSelectionSet(lexer);
   let%Result directives = parseDirectives(lexer, ~isConst=false);
 
-  Ok(FragmentDefinition({typeCondition, name, selectionSet, directives}));
+  Ok(Fragment({typeCondition, name, selectionSet, directives}));
 };
 
 let parseExecutableDefinition = (lexer: Lexer.t) =>

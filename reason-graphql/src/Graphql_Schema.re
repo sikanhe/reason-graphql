@@ -1121,12 +1121,12 @@ module Make = (Io: IO) => {
           | None => `Null
           }
         | `List(xs) => `List(List.map(xs, valueToConstValue(variableMap)))
-        | `Map(props) => {
+        | `Object(props) => {
             let props' =
               List.map(props, ((name, value)) =>
                 (name, valueToConstValue(variableMap, value))
               );
-            `Map(props');
+            `Object(props');
           };
 
     let rec stringOfConstValue: Ast.constValue => string = (
@@ -1141,7 +1141,7 @@ module Make = (Io: IO) => {
           let values = List.map(l, i => stringOfConstValue(i));
           Printf.sprintf("[%s]", String.concat(", ", values));
         }
-      | `Map(a) => {
+      | `Object(a) => {
           let values =
             List.map(a, ((k, v)) => Printf.sprintf("%s: %s", k, stringOfConstValue(v)));
 
@@ -1274,7 +1274,7 @@ module Make = (Io: IO) => {
           }
         | (InputObject(o), Some(value)) =>
           switch (value) {
-          | `Map((props: list((string, Ast.constValue)))) =>
+          | `Object((props: list((string, Ast.constValue)))) =>
             evalArgList(
               variableMap,
               ~fieldType?,
@@ -1508,7 +1508,7 @@ module Make = (Io: IO) => {
         }
       )
       ->Io.map(List.Result.join)
-      ->Io.Result.map(assocList => `Map(assocList));
+      ->Io.Result.map(assocList => `Object(assocList));
     };
 
   let executeOperation =
@@ -1547,7 +1547,7 @@ module Make = (Io: IO) => {
   let collectOperations = (document: Ast.document) =>
     Belt.List.reduceReverse(document.definitions, [], (list, x) =>
       switch (x) {
-      | Ast.OperationDefinition(operation) => [operation, ...list]
+      | Ast.Operation(operation) => [operation, ...list]
       | _ => list
       }
     );
@@ -1555,7 +1555,7 @@ module Make = (Io: IO) => {
   let collectFragments = (document: Ast.document) => {
     Belt.List.reduceReverse(document.definitions, StringMap.empty, fragmentMap =>
       fun
-      | Ast.FragmentDefinition(fragment) => StringMap.set(fragmentMap, fragment.name, fragment)
+      | Ast.Fragment(fragment) => StringMap.set(fragmentMap, fragment.name, fragment)
       | _ => fragmentMap
     );
   };
@@ -1607,7 +1607,7 @@ module Make = (Io: IO) => {
   };
 
   let okResponse = data => {
-    `Map([("data", data)]);
+    `Object([("data", data)]);
   };
 
   let errorResponse = (~path=?, msg): Ast.constValue => {
@@ -1616,12 +1616,12 @@ module Make = (Io: IO) => {
       | Some(path) => path
       | None => []
       };
-    `Map([
+    `Object([
       ("data", `Null),
       (
         "errors",
         `List([
-          `Map([
+          `Object([
             ("message", `String(msg)),
             ("path", `List(List.map(path', s => `String(s)))),
           ]),

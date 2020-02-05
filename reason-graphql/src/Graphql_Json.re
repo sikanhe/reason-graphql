@@ -7,10 +7,10 @@ let rec fromConstValue: Graphql_Language_Ast.constValue => Js.Json.t =
   | `Boolean(bool) => Js.Json.boolean(bool)
   | `List(list) =>
     Belt.List.map(list, item => fromConstValue(item)) |> Belt.List.toArray |> Js.Json.array
-  | `Map(assocList) => {
+  | `Object(rows) => {
       let dict =
         Belt.List.reduceReverse(
-          assocList,
+          rows,
           Js.Dict.empty(),
           (dict, (name, value)) => {
             Js.Dict.set(dict, name, fromConstValue(value));
@@ -32,7 +32,7 @@ let rec toConstValue = (json: Js.Json.t): Graphql_Language_Ast.constValue =>
   | JSONArray(array) =>
     `List(Belt.Array.map(array, item => toConstValue(item)) |> Belt.List.fromArray)
   | JSONObject(dict) =>
-    `Map(
+    `Object(
       Js.Dict.entries(dict)
       ->Belt.Array.map(((k, v)) => (k, toConstValue(v)))
       ->Belt.List.fromArray,

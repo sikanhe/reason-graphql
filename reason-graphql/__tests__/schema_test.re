@@ -16,7 +16,7 @@ describe("Basic Queries", () => {
     |};
 
     let expected =
-      Schema.okResponse(`Map([("hero", `Map([("name", `String("R2-D2"))]))]))
+      Schema.okResponse(`Object([("hero", `Object([("name", `String("R2-D2"))]))]))
       |> Graphql_Json.fromConstValue;
 
     schema
@@ -41,18 +41,18 @@ describe("Basic Queries", () => {
 
     let expected =
       Schema.okResponse(
-        `Map([
+        `Object([
           (
             "hero",
-            `Map([
+            `Object([
               ("id", `Int(2001)),
               ("name", `String("R2-D2")),
               (
                 "friends",
                 `List([
-                  `Map([("name", `String("Luke Skywalker"))]),
-                  `Map([("name", `String("Han Solo"))]),
-                  `Map([("name", `String("Leia Organa"))]),
+                  `Object([("name", `String("Luke Skywalker"))]),
+                  `Object([("name", `String("Han Solo"))]),
+                  `Object([("name", `String("Leia Organa"))]),
                 ]),
               ),
             ]),
@@ -88,15 +88,15 @@ describe("Nested Queries", () =>
 
     let expected =
       Schema.okResponse(
-        `Map([
+        `Object([
           (
             "hero",
-            `Map([
+            `Object([
               ("name", `String("R2-D2")),
               (
                 "friends",
                 `List([
-                  `Map([
+                  `Object([
                     ("name", `String("Luke Skywalker")),
                     (
                       "appearsIn",
@@ -105,14 +105,14 @@ describe("Nested Queries", () =>
                     (
                       "friends",
                       `List([
-                        `Map([("name", `String("Han Solo"))]),
-                        `Map([("name", `String("Leia Organa"))]),
-                        `Map([("name", `String("C-3PO"))]),
-                        `Map([("name", `String("R2-D2"))]),
+                        `Object([("name", `String("Han Solo"))]),
+                        `Object([("name", `String("Leia Organa"))]),
+                        `Object([("name", `String("C-3PO"))]),
+                        `Object([("name", `String("R2-D2"))]),
                       ]),
                     ),
                   ]),
-                  `Map([
+                  `Object([
                     ("name", `String("Han Solo")),
                     (
                       "appearsIn",
@@ -121,13 +121,13 @@ describe("Nested Queries", () =>
                     (
                       "friends",
                       `List([
-                        `Map([("name", `String("Luke Skywalker"))]),
-                        `Map([("name", `String("Leia Organa"))]),
-                        `Map([("name", `String("R2-D2"))]),
+                        `Object([("name", `String("Luke Skywalker"))]),
+                        `Object([("name", `String("Leia Organa"))]),
+                        `Object([("name", `String("R2-D2"))]),
                       ]),
                     ),
                   ]),
-                  `Map([
+                  `Object([
                     ("name", `String("Leia Organa")),
                     (
                       "appearsIn",
@@ -136,10 +136,10 @@ describe("Nested Queries", () =>
                     (
                       "friends",
                       `List([
-                        `Map([("name", `String("Luke Skywalker"))]),
-                        `Map([("name", `String("Han Solo"))]),
-                        `Map([("name", `String("C-3PO"))]),
-                        `Map([("name", `String("R2-D2"))]),
+                        `Object([("name", `String("Luke Skywalker"))]),
+                        `Object([("name", `String("Han Solo"))]),
+                        `Object([("name", `String("C-3PO"))]),
+                        `Object([("name", `String("R2-D2"))]),
                       ]),
                     ),
                   ]),
@@ -193,13 +193,13 @@ describe("Mutation operation", () => {
   testAsync("returns the right data", assertion => {
     let expected =
       Schema.okResponse(
-        `Map([
+        `Object([
           (
             "updateCharacterName",
-            `Map([
+            `Object([
               (
                 "character",
-                `Map([("id", `Int(1000)), ("name", `String("Sikan Skywalker"))]),
+                `Object([("id", `Int(1000)), ("name", `String("Sikan Skywalker"))]),
               ),
               ("error", `Null),
             ]),
@@ -225,7 +225,7 @@ describe("Using aliases to change the key in the response", () => {
     |};
 
     let expected =
-      Schema.okResponse(`Map([("luke", `Map([("name", `String("Luke Skywalker"))]))]))
+      Schema.okResponse(`Object([("luke", `Object([("name", `String("Luke Skywalker"))]))]))
       |> Graphql_Json.fromConstValue;
 
     schema
@@ -250,9 +250,9 @@ describe("Using aliases to change the key in the response", () => {
 
     let expected =
       Schema.okResponse(
-        `Map([
-          ("luke", `Map([("name", `String("Luke Skywalker"))])),
-          ("leia", `Map([("name", `String("Leia Organa"))])),
+        `Object([
+          ("luke", `Object([("name", `String("Luke Skywalker"))])),
+          ("leia", `Object([("name", `String("Leia Organa"))])),
         ]),
       )
       |> Graphql_Json.fromConstValue;
@@ -284,14 +284,14 @@ describe("Uses fragments to express more complex queries", () => {
 
     let expected =
       Schema.okResponse(
-        `Map([
+        `Object([
           (
             "luke",
-            `Map([("name", `String("Luke Skywalker")), ("homePlanet", `String("Tatooine"))]),
+            `Object([("name", `String("Luke Skywalker")), ("homePlanet", `String("Tatooine"))]),
           ),
           (
             "leia",
-            `Map([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
+            `Object([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
           ),
         ]),
       )
@@ -325,14 +325,14 @@ describe("Uses fragments to express more complex queries", () => {
 
     let expected =
       Schema.okResponse(
-        `Map([
+        `Object([
           (
             "luke",
-            `Map([("name", `String("Luke Skywalker")), ("homePlanet", `String("Tatooine"))]),
+            `Object([("name", `String("Luke Skywalker")), ("homePlanet", `String("Tatooine"))]),
           ),
           (
             "leia",
-            `Map([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
+            `Object([("name", `String("Leia Organa")), ("homePlanet", `String("Alderaan"))]),
           ),
         ]),
       )
@@ -360,7 +360,7 @@ describe("Uses fragments to express more complex queries", () => {
 
     let expected =
       Schema.okResponse(
-        `Map([("luke", `Map([("__typename", `String("Human"))]))]),
+        `Object([("luke", `Object([("__typename", `String("Human"))]))]),
       )
       |> Graphql_Json.fromConstValue;
 
@@ -405,32 +405,32 @@ describe("introspection query", () => {
 
     let expected =
       Schema.okResponse(
-        `Map([
+        `Object([
           (
             "__schema",
-            `Map([
+            `Object([
               (
                 "queryType",
-                `Map([
+                `Object([
                   ("name", `String("Query")),
                   (
                     "fields",
                     `List([
-                      `Map([("name", `String("hero"))]),
-                      `Map([("name", `String("human"))]),
-                      `Map([("name", `String("droid"))]),
+                      `Object([("name", `String("hero"))]),
+                      `Object([("name", `String("human"))]),
+                      `Object([("name", `String("droid"))]),
                     ]),
                   ),
                 ]),
               ),
               (
                 "mutationType",
-                `Map([
+                `Object([
                   ("name", `String("Mutation")),
                   (
                     "fields",
                     `List([
-                      `Map([("name", `String("updateCharacterName"))]),
+                      `Object([("name", `String("updateCharacterName"))]),
                     ]),
                   ),
                 ]),
