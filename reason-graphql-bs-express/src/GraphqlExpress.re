@@ -42,7 +42,7 @@ let middleware = (~provideCtx, ~graphiql=false, schema) =>
     | "POST" =>
       switch (parseBodyIntoDocumentAndVariables(req)) {
       | Ok((document, variables)) =>
-        GraphqlPromise.Schema.execute(
+        GraphqlJsPromise.Schema.execute(
           schema,
           ~document,
           ~variables?,
