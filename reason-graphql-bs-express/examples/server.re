@@ -1,7 +1,7 @@
 type ctx = {userIP: string};
 
 module HelloWorldSchema = {
-  open GraphqlPromise;
+  open GraphqlJsPromise;
 
   let rootQuery =
     Schema.(
