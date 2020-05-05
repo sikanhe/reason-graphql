@@ -38,22 +38,15 @@ bs-express@^0.12.0:
   dependencies:
     express "^4.16.3"
 
-bs-platform@^5.0.0:
-  version "5.0.4"
-  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-5.0.4.tgz#d406ef43c12d1b19d8546884d8b5b4e0fb709372"
-  integrity sha512-rXM+ztN8wYXQ4ojfFGylvPOf8GRLOvM94QJsMMV9VpsLChKCjesWMNybTZvpoyNsESu2nC5q+C9soG+BPhuUFQ==
+bs-let@^0.1.11:
+  version "0.1.16"
+  resolved "https://registry.yarnpkg.com/bs-let/-/bs-let-0.1.16.tgz#63cd449ed02c75f87eceb248d45963937afdd4ed"
+  integrity sha512-pdbSNe/QRpqgqS72dYDlkZ7kqMHc5aJkLgipLS8BFMRx+hQqkOo0JOpxWZQeDj1T677e302xgmV+Mid5gvmnBg==
 
-bsb-native@4.0.6:
-  version "4.0.6"
-  resolved "https://registry.yarnpkg.com/bsb-native/-/bsb-native-4.0.6.tgz#5c0289e24e0a3375ebf8f69a17510b884cace1ca"
-  integrity sha512-T1MkndnmA4StiKK2UvEftrqANN+h9StlLghBbwmKa833d97D86np+2wmIOw5Rqy6rNW3D076A2G51mooWTUwfQ==
-  dependencies:
-    yauzl "^2.9.1"
-
-buffer-crc32@~0.2.3:
-  version "0.2.13"
-  resolved "https://registry.yarnpkg.com/buffer-crc32/-/buffer-crc32-0.2.13.tgz#0d333e3f00eac50aa1454abd30ef8c2a5d9a7242"
-  integrity sha1-DTM+PwDqxQqhRUq9MO+MKl2ackI=
+"bs-platform@>= 7.0.0":
+  version "7.2.2"
+  resolved "https://registry.yarnpkg.com/bs-platform/-/bs-platform-7.2.2.tgz#76fdc63e4889458ae3d257a0132107a792f2309c"
+  integrity sha512-PWcFfN+jCTtT/rMaHDhKh+W9RUTpaRunmSF9vbLYcrJbpgCNW6aFKAY33u0P3mLxwuhshN3b4FxqGUBPj6exZQ==
 
 bytes@3.0.0:
   version "3.0.0"
@@ -153,13 +146,6 @@ express@^4.16.3:
     utils-merge "1.0.1"
     vary "~1.1.2"
 
-fd-slicer@~1.1.0:
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/fd-slicer/-/fd-slicer-1.1.0.tgz#25c7c89cb1f9077f8891bbe61d8f390eae256f1e"
-  integrity sha1-JcfInLH5B3+IkbvmHY85Dq4lbx4=
-  dependencies:
-    pend "~1.2.0"
-
 finalhandler@1.1.1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/finalhandler/-/finalhandler-1.1.1.tgz#eebf4ed840079c83f4249038c9d703008301b105"
@@ -209,13 +195,6 @@ ipaddr.js@1.9.0:
   version "1.9.0"
   resolved "https://registry.yarnpkg.com/ipaddr.js/-/ipaddr.js-1.9.0.tgz#37df74e430a0e47550fe54a2defe30d8acd95f65"
   integrity sha512-M4Sjn6N/+O6/IXSJseKqHoFc+5FdGJ22sXqnjTpdZweHK64MzEPAyQZyEU3R/KRv2GLoa7nNtg/C2Ev6m7z+eA==
-
-let-anything@^1.0.3:
-  version "1.0.3"
-  resolved "https://registry.yarnpkg.com/let-anything/-/let-anything-1.0.3.tgz#0e870607e37ee9ec3793a973e8cd48a59817edf4"
-  integrity sha512-cq3cWtklrAy2B+Fcl/PodvaCRGl2RDP2NjwFogsqRXE7Q1nsEtHpFlL1PmgNRj0+7bSYtt5fEyQmPmHlVTzvNQ==
-  dependencies:
-    bsb-native "4.0.6"
 
 media-typer@0.3.0:
   version "0.3.0"
@@ -276,11 +255,6 @@ path-to-regexp@0.1.7:
   resolved "https://registry.yarnpkg.com/path-to-regexp/-/path-to-regexp-0.1.7.tgz#df604178005f522f15eb4490e7247a1bfaa67f8c"
   integrity sha1-32BBeABfUi8V60SQ5yR6G/qmf4w=
 
-pend@~1.2.0:
-  version "1.2.0"
-  resolved "https://registry.yarnpkg.com/pend/-/pend-1.2.0.tgz#7a57eb550a6783f9115331fcf4663d5c8e007a50"
-  integrity sha1-elfrVQpng/kRUzH89GY9XI4AelA=
-
 proxy-addr@~2.0.4:
   version "2.0.5"
   resolved "https://registry.yarnpkg.com/proxy-addr/-/proxy-addr-2.0.5.tgz#34cbd64a2d81f4b1fd21e76f9f06c8a45299ee34"
@@ -314,13 +288,19 @@ reason-future@^2.4.0:
   resolved "https://registry.yarnpkg.com/reason-future/-/reason-future-2.4.0.tgz#3918945a943a6abbb67bc62e90af6a65a0f079ae"
   integrity sha512-QtWvUqzfPTxZpB4sWjAS3bFqCB76Lsxm6ekd99LF8iXkLqx2Xg+b9wyobW/KoXMrq48B//hvW3Dh3vhIYlpXHQ==
 
-"reason-graphql@>= 0.1.0":
-  version "0.4.0"
-  resolved "https://registry.yarnpkg.com/reason-graphql/-/reason-graphql-0.4.0.tgz#adf0ab0758a31f8a7f57b6d579b2d2b8ac6d8f44"
-  integrity sha512-LA4bXaTagzFJtahj1RfCuPQctv1jDPjsU9ejkejl/S0f53bh2rHcI8dqVtf1Cx6sEumLuVIO7afkll6PcODp2w==
+reason-graphql@^0.6.0:
+  version "0.6.1"
+  resolved "https://registry.yarnpkg.com/reason-graphql/-/reason-graphql-0.6.1.tgz#1effc0c34e1286f40686d15c1e805b212e719923"
+  integrity sha512-zgLoo01Aq+mxTAzV0s4YUii0IbKb+gZGduBf66ZNErXCnmWzdn0+vtMhfCtQ7F9XL6nfq19J7BJu4ZbUp+fzrQ==
   dependencies:
-    let-anything "^1.0.3"
+    bs-let "^0.1.11"
     reason-future "^2.4.0"
+    reason-promise "^1.0.1"
+
+reason-promise@^1.0.1:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/reason-promise/-/reason-promise-1.0.2.tgz#22b9bb4097ce511190182b948aef11427d5b8b86"
+  integrity sha512-j8DWV+71wNEKQmyW6zBOowIZq1Qec5CDWyLI37BvgOmAZgRFGFQ1MaJnbhqDe3JsYmaGyqdNMmpCJLl9EDbDAg==
 
 safe-buffer@5.1.2:
   version "5.1.2"
@@ -398,11 +378,3 @@ vary@~1.1.2:
   version "1.1.2"
   resolved "https://registry.yarnpkg.com/vary/-/vary-1.1.2.tgz#2299f02c6ded30d4a5961b0b9f74524a18f634fc"
   integrity sha1-IpnwLG3tMNSllhsLn3RSShj2NPw=
-
-yauzl@^2.9.1:
-  version "2.10.0"
-  resolved "https://registry.yarnpkg.com/yauzl/-/yauzl-2.10.0.tgz#c7eb17c93e112cb1086fa6d8e51fb0667b79a5f9"
-  integrity sha1-x+sXyT4RLLEIb6bY5R+wZnt5pfk=
-  dependencies:
-    buffer-crc32 "~0.2.3"
-    fd-slicer "~1.1.0"
