@@ -26,7 +26,6 @@ module StringMap = {
 
 module StringSet = Set.Make(String);
 
-type variableList = list((string, Ast.constValue));
 type variableMap = StringMap.t(Ast.constValue);
 type fragmentMap = StringMap.t(Ast.fragmentDefinition);
 
@@ -91,6 +90,8 @@ module Make = (Io: IO) => {
 
     let let_ = bind;
   };
+
+  type variableList = list((string, Ast.constValue));
 
   type deprecation =
     | NotDeprecated

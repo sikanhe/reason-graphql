@@ -3,6 +3,7 @@ module Schema =
     type t('a) = Promise.t('a);
 
     let return = Promise.resolved;
+    let map = Promise.map;
     let bind = Promise.flatMap;
   });
 
