@@ -10,5 +10,3 @@ module Schema =
       Js.Promise.then_(continuation, p);
     };
   });
-
-module Language = Graphql.Language;
