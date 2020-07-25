@@ -250,7 +250,7 @@ module type Schema = {
     Graphql_Language.Ast.document =>
     list(Graphql_Language.Ast.operationDefinition);
   exception FragmentCycle(list(string));
-  let okResponse: 'a => [> | `Map(list((string, 'a)))];
+  let okResponse: 'a => [> | `Object(list((string, 'a)))];
   let errorResponse:
     (~path: list(string)=?, string) => Graphql_Language.Ast.constValue;
   let execute:

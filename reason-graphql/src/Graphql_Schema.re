@@ -19,11 +19,7 @@ module List = {
   };
 };
 
-module StringMap = {
-  include Belt.Map.String;
-  exception MissingKey(string);
-};
-
+module StringMap = Belt.Map.String;
 module StringSet = Set.Make(String);
 
 type variableMap = StringMap.t(Ast.constValue);
@@ -323,7 +319,7 @@ module Make = (Io: IO) => {
 
   let obj = (~description=?, ~implements: ref(list(abstract))=ref([]), ~fields, name) => {
     let rec self =
-      Object({name, description, fields: lazy (fields(self)), abstracts: implements});
+      Object({name, description, fields: lazy(fields(self)), abstracts: implements});
     self;
   };
 
@@ -341,7 +337,7 @@ module Make = (Io: IO) => {
   let union = (~description=?, name) => Abstract({name, description, types: [], kind: `Union});
 
   let interface = (~description=?, ~fields, name) => {
-    let rec t = Abstract({name, description, types: [], kind: `Interface(lazy (fields(t)))});
+    let rec t = Abstract({name, description, types: [], kind: `Interface(lazy(fields(t)))});
     t;
   };
 
@@ -358,14 +354,14 @@ module Make = (Io: IO) => {
   let query = (fields): obj('ctx, unit) => {
     name: "Query",
     description: None,
-    fields: lazy fields,
+    fields: lazy(fields),
     abstracts: ref([]),
   };
 
   let mutation = (fields): obj('ctx, unit) => {
     name: "Mutation",
     description: None,
-    fields: lazy fields,
+    fields: lazy(fields),
     abstracts: ref([]),
   };
 
@@ -533,7 +529,7 @@ module Make = (Io: IO) => {
         description: None,
         abstracts: no_abstracts,
         fields:
-          lazy [
+          lazy([
             Field({
               name: "name",
               description: None,
@@ -576,7 +572,7 @@ module Make = (Io: IO) => {
                 | NotDeprecated => None
                 },
             }),
-          ],
+          ]),
       });
 
     let rec __input_value: 'ctx. typ('ctx, option(anyArg)) =
@@ -585,7 +581,7 @@ module Make = (Io: IO) => {
         description: None,
         abstracts: no_abstracts,
         fields:
-          lazy [
+          lazy([
             Field({
               name: "name",
               typ: NonNull(string),
@@ -632,9 +628,9 @@ module Make = (Io: IO) => {
               deprecated: NotDeprecated,
               description: None,
               lift: Io.ok,
-              resolve: (_, AnyArg(_)) => None
+              resolve: (_, AnyArg(_)) => None,
             }),
-          ],
+          ]),
       })
     and __type: 'ctx. typ('ctx, option(anyTyp)) =
       Object({
@@ -642,7 +638,7 @@ module Make = (Io: IO) => {
         description: None,
         abstracts: no_abstracts,
         fields:
-          lazy [
+          lazy([
             Field({
               name: "kind",
               description: None,
@@ -799,7 +795,7 @@ module Make = (Io: IO) => {
                 | _ => None
                 },
             }),
-          ],
+          ]),
       })
     and __field: type ctx. typ(ctx, option(anyField)) =
       Object({
@@ -807,7 +803,7 @@ module Make = (Io: IO) => {
         description: None,
         abstracts: no_abstracts,
         fields:
-          lazy [
+          lazy([
             Field({
               name: "name",
               description: None,
@@ -889,7 +885,7 @@ module Make = (Io: IO) => {
                 | _ => None
                 },
             }),
-          ],
+          ]),
       });
 
     let __directiveLocation =
@@ -939,7 +935,7 @@ module Make = (Io: IO) => {
         description: None,
         abstracts: no_abstracts,
         fields:
-          lazy [
+          lazy([
             Field({
               name: "name",
               description: None,
@@ -976,7 +972,7 @@ module Make = (Io: IO) => {
               lift: Io.ok,
               resolve: (_, Directive(d)) => args_to_list(d.args),
             }),
-          ],
+          ]),
       });
 
     let __schema: 'ctx. typ('ctx, option(schema('ctx))) =
@@ -985,7 +981,7 @@ module Make = (Io: IO) => {
         description: None,
         abstracts: no_abstracts,
         fields:
-          lazy [
+          lazy([
             Field({
               name: "types",
               description: None,
@@ -1027,8 +1023,7 @@ module Make = (Io: IO) => {
               typ: __type,
               args: Arg.[],
               lift: Io.ok,
-              resolve: (_, s) =>
-                Option.map(s.mutation, mut => AnyTyp(Object(mut))),
+              resolve: (_, s) => Option.map(s.mutation, mut => AnyTyp(Object(mut))),
             }),
             Field({
               name: "subscriptionType",
@@ -1048,7 +1043,7 @@ module Make = (Io: IO) => {
               lift: Io.ok,
               resolve: (_, _) => [],
             }),
-          ],
+          ]),
       });
 
     let addSchemaField = schema => {
@@ -1057,7 +1052,7 @@ module Make = (Io: IO) => {
         query: {
           ...schema.query,
           fields:
-            lazy [
+            lazy([
               Field({
                 name: "__schema",
                 typ: NonNull(__schema),
@@ -1068,7 +1063,7 @@ module Make = (Io: IO) => {
                 resolve: (_, _) => schema,
               }),
               ...Lazy.force(schema.query.fields),
-            ],
+            ]),
         },
       };
     };
@@ -1208,32 +1203,12 @@ module Make = (Io: IO) => {
             | Some(v) => f(v),
           );
         | [Arg(arg), ...arglist'] =>
-          try (
-            {
-              let value = List.getAssoc(key_values, arg.name, (==));
-              let constValue = Option.map(value, valueToConstValue(variableMap));
-              evalArg(
-                variableMap,
-                ~fieldType?,
-                ~fieldName,
-                ~argName=arg.name,
-                arg.typ,
-                constValue,
-              )
-              ->Result.flatMap(coerced =>
-                  evalArgList(
-                    variableMap,
-                    ~fieldType?,
-                    ~fieldName,
-                    arglist',
-                    key_values,
-                    f(coerced),
-                  )
-                );
-            }
-          ) {
-          | StringMap.MissingKey(key) => Error(Format.sprintf("Missing variable `%s`", key))
-          }
+          let value = List.getAssoc(key_values, arg.name, (==));
+          let constValue = Option.map(value, valueToConstValue(variableMap));
+          evalArg(variableMap, ~fieldType?, ~fieldName, ~argName=arg.name, arg.typ, constValue)
+          ->Result.flatMap(coerced =>
+              evalArgList(variableMap, ~fieldType?, ~fieldName, arglist', key_values, f(coerced))
+            );
         }
 
     and evalArg:
@@ -1495,15 +1470,10 @@ module Make = (Io: IO) => {
           Io.ok((fieldName(field), `String(obj.name)));
         } else {
           switch (getObjField(field.name, obj)) {
-          | Some(objField) =>
-            resolveField(executionContext, src, field, objField)
+          | Some(objField) => resolveField(executionContext, src, field, objField)
           | None =>
             let err =
-              Printf.sprintf(
-                "Field '%s' is not defined on type '%s'",
-                field.name,
-                obj.name,
-              );
+              Printf.sprintf("Field '%s' is not defined on type '%s'", field.name, obj.name);
             Io.error(`ValidationError(err));
           };
         }
@@ -1564,7 +1534,7 @@ module Make = (Io: IO) => {
   exception FragmentCycle(list(string));
 
   let rec validateFragments = fragmentMap =>
-    try (
+    try(
       {
         StringMap.forEach(fragmentMap, (name, _) =>
           validateFragment(fragmentMap, StringSet.empty, name)
