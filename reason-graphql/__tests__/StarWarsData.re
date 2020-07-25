@@ -73,21 +73,24 @@ let artoo = {
 
 let getHuman = id =>
   Js.Promise.resolve(Belt.List.getBy([luke, han, leia, vader], human => human.id == id));
-let getDroid = id => Js.Promise.resolve(Belt.List.getBy([threepio, artoo], droid => droid.id == id));
+let getDroid = id =>
+  Js.Promise.resolve(Belt.List.getBy([threepio, artoo], droid => droid.id == id));
 let getCharacter = id => {
   getHuman(id)
-  |> Js.Promise.(then_(
-      fun
-      | Some(human) => resolve(Some(Human(human)))
-      | None => {
-          getDroid(id)
-          |> then_(
-              fun
-              | Some(droid) => resolve(Some(Droid(droid)))
-              | None => resolve(None),
-            );
-        },
-    ));
+  |> Js.Promise.(
+       then_(
+         fun
+         | Some(human) => resolve(Some(Human(human)))
+         | None => {
+             getDroid(id)
+             |> then_(
+                  fun
+                  | Some(droid) => resolve(Some(Droid(droid)))
+                  | None => resolve(None),
+                );
+           },
+       )
+     );
 };
 
 type updateCharacterNameError =
@@ -97,17 +100,24 @@ type updateCharacterResult = Belt.Result.t(character, updateCharacterNameError);
 
 let updateCharacterName = (id, name): Js.Promise.t(updateCharacterResult) => {
   getCharacter(id)
-  |> Js.Promise.(then_(
-      fun
-      | Some(Human(human)) => resolve(Belt.Result.Ok(Human({...human, name})))
-      | Some(Droid(droid)) => resolve(Belt.Result.Ok(Droid({...droid, name})))
-      | None => resolve(Belt.Result.Error(CharacterNotFound(id))),
-    ));
+  |> Js.Promise.(
+       then_(
+         fun
+         | Some(Human(human)) => resolve(Belt.Result.Ok(Human({...human, name})))
+         | Some(Droid(droid)) => resolve(Belt.Result.Ok(Droid({...droid, name})))
+         | None => resolve(Belt.Result.Error(CharacterNotFound(id))),
+       )
+     );
 };
 
-let rec futureAll = fun 
-    | [] => Future.value([])
-    | [x, ...xs] => Future.flatMap(futureAll(xs), xs' => Future.map(x, x' => [x', ...xs']));
+let rec futureAll =
+  fun
+  | [] => Js.Promise.resolve([])
+  | [x, ...xs] =>
+    Js.Promise.then_(
+      xs' => Js.Promise.then_(x' => Js.Promise.resolve([x', ...xs']), x),
+      futureAll(xs),
+    );
 
 let getFriends = ids => {
   Belt.List.map(ids, id => {
@@ -115,5 +125,5 @@ let getFriends = ids => {
   })
   |> Array.of_list
   |> Js.Promise.all
-  |> Js.Promise.(then_(all => resolve(Array.to_list(all))))
+  |> Js.Promise.(then_(all => resolve(Array.to_list(all))));
 };
