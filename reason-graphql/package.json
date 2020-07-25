@@ -28,11 +28,9 @@
   },
   "devDependencies": {
     "@glennsl/bs-jest": "^0.4.9",
-    "bs-platform": "^7.0.1"
+    "bs-platform": "^8.1.1"
   },
   "dependencies": {
-    "bs-let": "^0.1.11",
-    "reason-future": "^2.4.0",
-    "reason-promise": "^1.0.1"
+    "bs-let": "^0.1.11"
   }
 }

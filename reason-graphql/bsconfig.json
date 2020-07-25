@@ -21,7 +21,7 @@
   "bs-dev-dependencies": ["@glennsl/bs-jest"],
   "ppx-flags": ["bs-let/ppx"],
   "warnings": {
-    "number": "-45-44",
+    "number": "-45-44-30",
     "error": "+101"
   },
   "namespace": false,
