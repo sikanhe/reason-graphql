@@ -28,16 +28,16 @@ let rec characterInterface: Schema.abstractType('ctx, [ | `Character]) =
   )
 
 and humanAsCharacterInterface =
-  lazy (Schema.addType(characterInterface, Lazy.force(humanTypeLazy)))
+  lazy(Schema.addType(characterInterface, Lazy.force(humanTypeLazy)))
 and droidAsCharacterInterface =
-  lazy (Schema.addType(characterInterface, Lazy.force(droidTypeLazy)))
+  lazy(Schema.addType(characterInterface, Lazy.force(droidTypeLazy)))
 and asCharacterInterface =
   fun
   | StarWars.Human(human) => Lazy.force(humanAsCharacterInterface, human)
   | Droid(droid) => Lazy.force(droidAsCharacterInterface, droid)
 
 and humanTypeLazy =
-  lazy
+  lazy(
     Schema.(
       obj("Human", ~description="A humanoid creature in the Star Wars universe.", ~fields=_ =>
         [
@@ -59,7 +59,7 @@ and humanTypeLazy =
             ~resolve=(_ctx, human: StarWars.human) =>
             Js.Promise.(
               StarWars.getFriends(human.friends)
-              |> then_(list => resolve(Ok(Belt.List.map(list, asCharacterInterface))))
+              |> then_(list => resolve(Ok(Belt.Array.map(list, asCharacterInterface))))
             )
           ),
           field("homePlanet", string, ~args=[], ~resolve=(_ctx, human: StarWars.human) =>
@@ -68,9 +68,10 @@ and humanTypeLazy =
         ]
       )
     )
+  )
 
 and droidTypeLazy =
-  lazy
+  lazy(
     Schema.(
       obj("Droid", ~description="A mechanical creature in the Star Wars universe.", ~fields=_ =>
         [
@@ -96,13 +97,14 @@ and droidTypeLazy =
             ~resolve=(_ctx, droid: StarWars.droid) =>
             Js.Promise.(
               StarWars.getFriends(droid.friends)
-              |> then_(list => resolve(Belt.List.map(list, asCharacterInterface)))
+              |> then_(list => resolve(Belt.Array.map(list, asCharacterInterface)))
               |> then_(list => resolve(Ok(list)))
             )
           ),
         ]
       )
-    );
+    )
+  );
 
 let humanType = Lazy.force(humanTypeLazy);
 let droidType = Lazy.force(droidTypeLazy);

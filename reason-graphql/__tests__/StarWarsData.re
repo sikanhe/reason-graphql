@@ -7,7 +7,7 @@ type human = {
   id: int,
   name: string,
   friends: list(int),
-  appearsIn: list(episode),
+  appearsIn: array(episode),
   homePlanet: option(string),
 };
 
@@ -15,7 +15,7 @@ type droid = {
   id: int,
   name: string,
   friends: list(int),
-  appearsIn: list(episode),
+  appearsIn: array(episode),
   primaryFunction: string,
 };
 
@@ -27,7 +27,7 @@ let luke = {
   id: 1000,
   name: "Luke Skywalker",
   friends: [1002, 1003, 2000, 2001],
-  appearsIn: [NEWHOPE, EMPIRE, JEDI],
+  appearsIn: [|NEWHOPE, EMPIRE, JEDI|],
   homePlanet: Some("Tatooine"),
 };
 
@@ -35,7 +35,7 @@ let vader = {
   id: 1001,
   name: "Darth Vader",
   friends: [1004],
-  appearsIn: [NEWHOPE, EMPIRE, JEDI],
+  appearsIn: [|NEWHOPE, EMPIRE, JEDI|],
   homePlanet: Some("Tatooine"),
 };
 
@@ -43,7 +43,7 @@ let han = {
   id: 1002,
   name: "Han Solo",
   friends: [1000, 1003, 2001],
-  appearsIn: [NEWHOPE, EMPIRE, JEDI],
+  appearsIn: [|NEWHOPE, EMPIRE, JEDI|],
   homePlanet: None,
 };
 
@@ -51,7 +51,7 @@ let leia = {
   id: 1003,
   name: "Leia Organa",
   friends: [1000, 1002, 2000, 2001],
-  appearsIn: [NEWHOPE, EMPIRE, JEDI],
+  appearsIn: [|NEWHOPE, EMPIRE, JEDI|],
   homePlanet: Some("Alderaan"),
 };
 
@@ -59,7 +59,7 @@ let threepio = {
   id: 2000,
   name: "C-3PO",
   friends: [1000, 1002, 1003, 2001],
-  appearsIn: [NEWHOPE, EMPIRE, JEDI],
+  appearsIn: [|NEWHOPE, EMPIRE, JEDI|],
   primaryFunction: "Protocol",
 };
 
@@ -67,7 +67,7 @@ let artoo = {
   id: 2001,
   name: "R2-D2",
   friends: [1000, 1002, 1003],
-  appearsIn: [NEWHOPE, EMPIRE, JEDI],
+  appearsIn: [|NEWHOPE, EMPIRE, JEDI|],
   primaryFunction: "Astromech",
 };
 
@@ -125,5 +125,4 @@ let getFriends = ids => {
   })
   |> Array.of_list
   |> Js.Promise.all
-  |> Js.Promise.(then_(all => resolve(Array.to_list(all))));
 };

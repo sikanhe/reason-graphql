@@ -201,7 +201,7 @@ module Make = (Io: IO) => {
   type typ(_, _) =
     | Scalar(scalar('src)): typ('ctx, option('src))
     | Enum(enum('src)): typ('ctx, option('src))
-    | List(typ('ctx, 'src)): typ('ctx, option(list('src)))
+    | List(typ('ctx, 'src)): typ('ctx, option(array('src)))
     | Object(obj('ctx, 'src)): typ('ctx, option('src))
     | Abstract(abstract): typ('ctx, option(abstractValue('ctx, 'a)))
     | NonNull(typ('ctx, option('src))): typ('ctx, 'src)
@@ -725,12 +725,16 @@ module Make = (Io: IO) => {
               lift: Io.ok,
               resolve: (_, t) =>
                 switch (t) {
-                | AnyTyp(Object(o)) => Some(List.map(Lazy.force(o.fields), f => AnyField(f)))
+                | AnyTyp(Object(o)) =>
+                  Some(List.map(Lazy.force(o.fields), f => AnyField(f))->List.toArray)
                 | AnyTyp(Abstract({kind: `Interface(fields), _})) =>
-                  Some(List.map(Lazy.force(fields), (AbstractField(f)) => AnyField(f)))
+                  Some(
+                    List.map(Lazy.force(fields), (AbstractField(f)) => AnyField(f))
+                    ->List.toArray,
+                  )
                 | AnyArgTyp(Arg.InputObject(o)) =>
                   let arg_list = args_to_list(o.fields);
-                  Some(List.map(arg_list, (AnyArg(f)) => AnyArgField(f)));
+                  Some(List.map(arg_list, (AnyArg(f)) => AnyArgField(f))->List.toArray);
                 | _ => None
                 },
             }),
@@ -751,7 +755,7 @@ module Make = (Io: IO) => {
                       | {kind: `Interface(_), _} => true
                       | _ => false,
                     );
-                  Some(List.map(interfaces, i => AnyTyp(Abstract(i))));
+                  Some(List.map(interfaces, i => AnyTyp(Abstract(i)))->List.toArray);
                 | _ => None
                 },
             }),
@@ -764,7 +768,7 @@ module Make = (Io: IO) => {
               lift: Io.ok,
               resolve: (_, t) =>
                 switch (t) {
-                | AnyTyp(Abstract(a)) => Some(a.types)
+                | AnyTyp(Abstract(a)) => Some(a.types->List.toArray)
                 | _ => None
                 },
             }),
@@ -777,7 +781,7 @@ module Make = (Io: IO) => {
               lift: Io.ok,
               resolve: (_, t) =>
                 switch (t) {
-                | AnyArgTyp(Arg.InputObject(o)) => Some(args_to_list(o.fields))
+                | AnyArgTyp(Arg.InputObject(o)) => Some(args_to_list(o.fields)->List.toArray)
                 | _ => None
                 },
             }),
@@ -790,8 +794,8 @@ module Make = (Io: IO) => {
               lift: Io.ok,
               resolve: (_, t) =>
                 switch (t) {
-                | AnyTyp(Enum(e)) => Some(List.map(e.values, x => AnyEnumValue(x)))
-                | AnyArgTyp(Arg.Enum(e)) => Some(List.map(e.values, x => AnyEnumValue(x)))
+                | AnyTyp(Enum(e)) => Some(List.map(e.values, x => AnyEnumValue(x))->List.toArray)
+                | AnyArgTyp(Arg.Enum(e)) => Some(List.map(e.values, x => AnyEnumValue(x))->List.toArray)
                 | _ => None
                 },
             }),
@@ -841,8 +845,8 @@ module Make = (Io: IO) => {
               lift: Io.ok,
               resolve: (_, f) =>
                 switch (f) {
-                | AnyField(Field(f)) => args_to_list(f.args)
-                | AnyArgField(_) => []
+                | AnyField(Field(f)) => args_to_list(f.args)->List.toArray
+                | AnyArgField(_) => [||]
                 },
             }),
             Field({
@@ -961,7 +965,7 @@ module Make = (Io: IO) => {
               typ: NonNull(List(NonNull(__directiveLocation))),
               args: Arg.[],
               lift: Io.ok,
-              resolve: (_, Directive(d)) => d.locations,
+              resolve: (_, Directive(d)) => d.locations->List.toArray,
             }),
             Field({
               name: "args",
@@ -970,7 +974,7 @@ module Make = (Io: IO) => {
               typ: NonNull(List(NonNull(__input_value))),
               args: Arg.[],
               lift: Io.ok,
-              resolve: (_, Directive(d)) => args_to_list(d.args),
+              resolve: (_, Directive(d)) => args_to_list(d.args)->List.toArray,
             }),
           ]),
       });
@@ -1004,7 +1008,7 @@ module Make = (Io: IO) => {
                     | Some(op) => types(~memo, Object(op))
                     }
                   );
-                types;
+                types->List.toArray;
               },
             }),
             Field({
@@ -1041,7 +1045,7 @@ module Make = (Io: IO) => {
               typ: NonNull(List(NonNull(__directive))),
               args: Arg.[],
               lift: Io.ok,
-              resolve: (_, _) => [],
+              resolve: (_, _) => [||],
             }),
           ]),
       });
@@ -1399,7 +1403,8 @@ module Make = (Io: IO) => {
         )
       | List(typ') =>
         coerceOrNull(src, src' =>
-          List.map(src', srcItem => resolveValue(executionContext, srcItem, field, typ'))
+          Belt.Array.map(src', srcItem => resolveValue(executionContext, srcItem, field, typ'))
+          ->List.fromArray
           ->Io.all
           ->Io.map(List.Result.join)
           ->Io.Result.map(list => `List(list))
