@@ -73,7 +73,7 @@ module type Schema = {
   type typ(_, _) =
     | Scalar(scalar('src)): typ('ctx, option('src))
     | Enum(enum('src)): typ('ctx, option('src))
-    | List(typ('ctx, 'src)): typ('ctx, option(list('src)))
+    | List(typ('ctx, 'src)): typ('ctx, option(array('src)))
     | Object(obj('ctx, 'src)): typ('ctx, option('src))
     | Abstract(abstract): typ('ctx, option(abstractValue('ctx, 'a)))
     | NonNull(typ('ctx, option('src))): typ('ctx, 'src)
@@ -207,7 +207,7 @@ module type Schema = {
   let int: typ('ctx, option(int));
   let float: typ('ctx, option(float));
   let boolean: typ('ctx, option(bool));
-  let list: typ('a, 'b) => typ('a, option(list('b)));
+  let list: typ('a, 'b) => typ('a, option(array('b)));
   let nonnull: typ('a, option('b)) => typ('a, 'b);
   type path = list(string);
   type error = (string, path);
