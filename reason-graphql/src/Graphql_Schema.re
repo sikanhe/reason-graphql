@@ -114,7 +114,7 @@ module Make = (Io: IO) => {
       | Scalar(scalar('a)): argTyp(option('a))
       | Enum(enum('a)): argTyp(option('a))
       | InputObject(inputObject('a, 'b)): argTyp(option('a))
-      | List(argTyp('a)): argTyp(option(list('a)))
+      | List(argTyp('a)): argTyp(option(array('a)))
       | NonNull(argTyp(option('a))): argTyp('a)
     and scalar('a) = {
       name: string,
@@ -1274,10 +1274,10 @@ module Make = (Io: IO) => {
               optionValues,
               evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ),
             )
-            ->Result.map(coerced => Some(coerced));
+            ->Result.map(coerced => Some(List.toArray(coerced)));
           | value =>
             evalArg(variableMap, ~fieldType?, ~fieldName, ~argName, typ, Some(value))
-            ->Result.map((coerced) => (Some([coerced]): a))
+            ->Result.map((coerced) => (Some([| coerced |]): a))
           }
         | (Enum(enum), Some(value)) =>
           switch (value) {

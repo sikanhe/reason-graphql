@@ -32,7 +32,7 @@ module type Schema = {
       | Scalar(scalar('a)): argTyp(option('a))
       | Enum(enum('a)): argTyp(option('a))
       | InputObject(inputObject('a, 'b)): argTyp(option('a))
-      | List(argTyp('a)): argTyp(option(list('a)))
+      | List(argTyp('a)): argTyp(option(array('a)))
       | NonNull(argTyp(option('a))): argTyp('a)
     and scalar('a) = {
       name: string,
@@ -67,7 +67,7 @@ module type Schema = {
     let int: argTyp(option(int));
     let float: argTyp(option(float));
     let boolean: argTyp(option(bool));
-    let list: argTyp('a) => argTyp(option(list('a)));
+    let list: argTyp('a) => argTyp(option(array('a)));
     let nonnull: argTyp(option('a)) => argTyp('a);
   };
   type typ(_, _) =
