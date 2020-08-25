@@ -5,6 +5,8 @@ open GraphqlJsPromise;
 
 let schema = StarWarsSchema.schema;
 
+let okResponse = a => `Object([("data", a)]);
+
 describe("Basic Queries", () => {
   testAsync("Correctly identifies R2-D2 as the hero of the Star Wars Saga", assertion => {
     let query = {|
@@ -16,7 +18,7 @@ describe("Basic Queries", () => {
     |};
 
     let expected =
-      Schema.okResponse(`Object([("hero", `Object([("name", `String("R2-D2"))]))]))
+      okResponse(`Object([("hero", `Object([("name", `String("R2-D2"))]))]))
       |> Graphql_Json.fromConstValue;
 
     schema
@@ -40,7 +42,7 @@ describe("Basic Queries", () => {
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Object([
           (
             "hero",
@@ -87,7 +89,7 @@ describe("Nested Queries", () =>
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Object([
           (
             "hero",
@@ -192,7 +194,7 @@ describe("Mutation operation", () => {
 
   testAsync("returns the right data", assertion => {
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Object([
           (
             "updateCharacterName",
@@ -225,7 +227,7 @@ describe("Using aliases to change the key in the response", () => {
     |};
 
     let expected =
-      Schema.okResponse(`Object([("luke", `Object([("name", `String("Luke Skywalker"))]))]))
+      okResponse(`Object([("luke", `Object([("name", `String("Luke Skywalker"))]))]))
       |> Graphql_Json.fromConstValue;
 
     schema
@@ -249,7 +251,7 @@ describe("Using aliases to change the key in the response", () => {
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Object([
           ("luke", `Object([("name", `String("Luke Skywalker"))])),
           ("leia", `Object([("name", `String("Leia Organa"))])),
@@ -283,11 +285,14 @@ describe("Uses fragments to express more complex queries", () => {
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Object([
           (
             "luke",
-            `Object([("name", `String("Luke Skywalker")), ("homePlanet", `String("Tatooine"))]),
+            `Object([
+              ("name", `String("Luke Skywalker")),
+              ("homePlanet", `String("Tatooine")),
+            ]),
           ),
           (
             "leia",
@@ -324,11 +329,14 @@ describe("Uses fragments to express more complex queries", () => {
     let schema = StarWarsSchema.schema;
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Object([
           (
             "luke",
-            `Object([("name", `String("Luke Skywalker")), ("homePlanet", `String("Tatooine"))]),
+            `Object([
+              ("name", `String("Luke Skywalker")),
+              ("homePlanet", `String("Tatooine")),
+            ]),
           ),
           (
             "leia",
@@ -345,9 +353,7 @@ describe("Uses fragments to express more complex queries", () => {
     ->ignore;
   });
 
-  testAsync(
-    "Allows us to use __typename to get a containing object's type name",
-    assertion => {
+  testAsync("Allows us to use __typename to get a containing object's type name", assertion => {
     let query = {|
     query UseFragment {
       luke: human(id: 1000) {
@@ -359,16 +365,11 @@ describe("Uses fragments to express more complex queries", () => {
     let schema = StarWarsSchema.schema;
 
     let expected =
-      Schema.okResponse(
-        `Object([("luke", `Object([("__typename", `String("Human"))]))]),
-      )
+      okResponse(`Object([("luke", `Object([("__typename", `String("Human"))]))]))
       |> Graphql_Json.fromConstValue;
 
     schema
-    ->Schema.execute(
-        ~document=Parser.parse(query)->Belt.Result.getExn,
-        ~ctx=(),
-      )
+    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;
@@ -376,8 +377,7 @@ describe("Uses fragments to express more complex queries", () => {
 });
 
 describe("introspection query", () => {
-  testAsync(
-    "should reply with queries, mutations, and subscriptions", assertion => {
+  testAsync("should reply with queries, mutations, and subscriptions", assertion => {
     let query = {|
       query IntrospectionQuery {
         __schema {
@@ -404,7 +404,7 @@ describe("introspection query", () => {
     |};
 
     let expected =
-      Schema.okResponse(
+      okResponse(
         `Object([
           (
             "__schema",
@@ -427,12 +427,7 @@ describe("introspection query", () => {
                 "mutationType",
                 `Object([
                   ("name", `String("Mutation")),
-                  (
-                    "fields",
-                    `List([
-                      `Object([("name", `String("updateCharacterName"))]),
-                    ]),
-                  ),
+                  ("fields", `List([`Object([("name", `String("updateCharacterName"))])])),
                 ]),
               ),
               ("subscriptionType", `Null),
@@ -443,10 +438,7 @@ describe("introspection query", () => {
       |> Graphql_Json.fromConstValue;
 
     schema
-    ->Schema.execute(
-        ~document=Parser.parse(query)->Belt.Result.getExn,
-        ~ctx=(),
-      )
+    ->Schema.execute(~document=Parser.parse(query)->Belt.Result.getExn, ~ctx=())
     ->Schema.resultToJson
     ->Schema.Io.map(res => assertion(expect(res) |> toEqual(expected)))
     ->ignore;

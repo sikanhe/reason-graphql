@@ -209,8 +209,11 @@ module type Schema = {
   let boolean: typ('ctx, option(bool));
   let list: typ('a, 'b) => typ('a, option(array('b)));
   let nonnull: typ('a, option('b)) => typ('a, 'b);
+
   type path = list(string);
+  
   type error = (string, path);
+
   type resolveError = [
     | `ArgumentError(string)
     | `ResolveError(error)
@@ -226,33 +229,7 @@ module type Schema = {
     | `SubscriptionsNotConfigured
     | `ValidationError(string)
   ];
-  type executionResult = {data: Graphql_Language.Ast.constValue};
-  module ArgEval: {
-    let stringOfConstValue: Graphql_Language.Ast.constValue => string;
-    let stringOfArgType: Arg.argTyp('a) => string;
-    let evalArgError:
-      (
-        ~fieldType: string=?,
-        ~fieldName: string,
-        ~argName: string,
-        Arg.argTyp('a),
-        option(Graphql_Language.Ast.constValue)
-      ) =>
-      string;
-  };
-  let matchesTypeCondition: (string, obj('ctx, 'src)) => bool;
-  let fieldName: Graphql_Language.Ast.field => string;
-  let getObjField: (string, obj('ctx, 'src)) => option(field('ctx, 'src));
-  let coerceOrNull:
-    (option('a), 'a => Io.t(result([> | `Null] as 'b, 'c))) =>
-    Io.t(result('b, 'c));
-  let collectOperations:
-    Graphql_Language.Ast.document =>
-    list(Graphql_Language.Ast.operationDefinition);
-  exception FragmentCycle(list(string));
-  let okResponse: 'a => [> | `Object(list((string, 'a)))];
-  let errorResponse:
-    (~path: list(string)=?, string) => Graphql_Language.Ast.constValue;
+
   let execute:
     (
       ~variables: variableList=?,
@@ -261,5 +238,6 @@ module type Schema = {
       ~ctx: 'ctx
     ) =>
     Io.t(Graphql_Language.Ast.constValue);
+    
   let resultToJson: Io.t(Graphql_Language.Ast.constValue) => Io.t(Js.Json.t);
 };
