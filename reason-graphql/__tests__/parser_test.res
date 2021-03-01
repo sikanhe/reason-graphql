@@ -1,13 +1,13 @@
-open Jest;
-open Graphql_Language;
+open Jest
+open Graphql_Language
 
 describe("Parse and print a graphql query", () => {
-  open Expect;
+  open Expect
 
-  let query = {|
+  let query = `
     query My1stQuery($id: Int, $another: [String!]!) { field {
                 hello: name
-                stringField(name:"\"test\"",nameagain:"汉字")
+                stringField(name: "test",nameagain:"汉字")
         # Commentsssss
                 age(default: 4.5, a: [4, 5, 5])
         ... on Foo {
@@ -32,16 +32,16 @@ describe("Parse and print a graphql query", () => {
         }
       }
     }
- |};
+ `
 
-  let document = Parser.parse(query);
-  let out = document->Belt.Result.getExn->Printer.print;
+  let document = Parser.parse(query)
+  let out = document->Belt.Result.getExn->Printer.print
 
   test("Should prettify the query correctly", () => {
-    let pretty = {|query My1stQuery($id: Int, $another: [String!]!) {
+    let pretty = `query My1stQuery($id: Int, $another: [String!]!) {
   field {
     hello: name
-    stringField(name: "\"test\"", nameagain: "汉字")
+    stringField(name: "test", nameagain: "汉字")
     age(default: 4.5, a: [4, 5, 5])
     ... on Foo {
       bar(h: {hello: 5, nested: {world: 1}})
@@ -63,17 +63,17 @@ fragment bazFields on FragmentModel {
       a
     }
   }
-}|};
+}`
 
-    expect(out) |> toBe(pretty);
-  });
-});
+    expect(out) |> toBe(pretty)
+  })
+})
 
 describe("Ast mapper", () => {
-  let query = {|query My1stQuery($id: Int, $another: [String!]!) {
+  let query = `query My1stQuery($id: Int, $another: [String!]!) {
   field {
     hello: name
-    stringField(name: "\"test\"", nameagain: "汉字")
+    stringField(name: "test", nameagain: "汉字")
     age(default: 4.5, a: [4, 5, 5])
     ... on Foo {
       bar(h: {hello: 5, nested: {world: 1}})
@@ -95,12 +95,12 @@ fragment bazFields on FragmentModel {
       a
     }
   }
-}|};
+}`
 
-  let expected = {|query My1stQuery($id: Int, $another: [String!]!) {
+  let expected = `query My1stQuery($id: Int, $another: [String!]!) {
   HI {
     hello: HI
-    HI(name: "\"test\"", nameagain: "汉字")
+    HI(name: "test", nameagain: "汉字")
     HI(default: 4.5, a: [4, 5, 5])
     ... on Foo {
       HI(h: {hello: 5, nested: {world: 1}})
@@ -122,55 +122,53 @@ fragment bazFields on FragmentModel {
       HI
     }
   }
-}|};
+}`
 
   test("default mapper", () => {
-    open Expect;
+    open Expect
 
-    let document = Parser.parse(query)->Belt.Result.getExn;
+    let document = Parser.parse(query)->Belt.Result.getExn
 
-    let modified = Ast.visit(~enter=Ast.defaultMapper, document);
+    let modified = Ast.visit(~enter=Ast.defaultMapper, document)
 
-    let out = Printer.print(modified);
+    let out = Printer.print(modified)
 
-    expect(out) |> toBe(query);
-  });
+    expect(out) |> toBe(query)
+  })
 
   test("enter", () => {
-    open Expect;
+    open Expect
 
-    let document = Parser.parse(query)->Belt.Result.getExn;
+    let document = Parser.parse(query)->Belt.Result.getExn
 
-    let modified =
-      Ast.visit(
-        ~enter={
-          ...Ast.defaultMapper,
-          field: field => {...field, name: "HI"},
-        },
-        document,
-      );
+    let modified = Ast.visit(
+      ~enter={
+        ...Ast.defaultMapper,
+        field: field => {...field, name: "HI"},
+      },
+      document,
+    )
 
-    let out = Printer.print(modified);
+    let out = Printer.print(modified)
 
-    expect(out) |> toBe(expected);
-  });
+    expect(out) |> toBe(expected)
+  })
 
-    test("leave", () => {
-    open Expect;
+  test("leave", () => {
+    open Expect
 
-    let document = Parser.parse(query)->Belt.Result.getExn;
+    let document = Parser.parse(query)->Belt.Result.getExn
 
-    let modified =
-      Ast.visit(
-        ~leave={
-          ...Ast.defaultMapper,
-          field: field => {...field, name: "HI"},
-        },
-        document,
-      );
+    let modified = Ast.visit(
+      ~leave={
+        ...Ast.defaultMapper,
+        field: field => {...field, name: "HI"},
+      },
+      document,
+    )
 
-    let out = Printer.print(modified);
+    let out = Printer.print(modified)
 
-    expect(out) |> toBe(expected);
-  });
-});
+    expect(out) |> toBe(expected)
+  })
+})
