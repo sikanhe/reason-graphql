@@ -9,9 +9,9 @@ let rec fromConstValue: Graphql_Language_Ast.constValue => Js.Json.t = x =>
   | #List(list) =>
     Belt.List.map(list, item => fromConstValue(item)) |> Belt.List.toArray |> Js.Json.array
   | #Object(rows) =>
-    let dict = Belt.List.reduceReverse(rows, Js.Dict.empty(), (dict, (name, value)) => {
+    let dict = Js.Dict.empty()
+    Belt.List.forEach(rows, ((name, value)) => {
       Js.Dict.set(dict, name, fromConstValue(value))
-      dict
     })
     Js.Json.object_(dict)
   | #Null => Js.Json.null
